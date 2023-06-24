@@ -46,6 +46,7 @@ import java.util.List;
 
 public class CreateConfigAction extends AnAction {
     private static String downloadDir; // Объявляем переменную downloadDir как статическую
+    private static String authServiceAddress; // Объявляем переменную authServiceAddress как статическую
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -103,13 +104,13 @@ public class CreateConfigAction extends AnAction {
                                 ini.load(iniFile);
 
                                 // Создаем раздел [custom], если он не существует
-                                if (!ini.containsKey("custom")) {
-                                    ini.add("custom");
+                                if (!ini.containsKey("general")) {
+                                    ini.add("general");
                                 }
 
                                 // Добавляем параметры DOWNLOAD_DIR и HIGHLIGHT_ACTION в раздел [custom]
-                                ini.get("custom").put("DOWNLOAD_DIR", getDownloadDir());
-                                ini.get("custom").put("HIGHLIGHT_ACTION", "True");
+                                ini.get("general").put("DOWNLOAD_DIR", getDownloadDir());
+                                ini.get("general").put("AUTH_SERVICE_ADDRESS", getAuthServiceAddress());
 
                                 // Сохраняем ini-файл
                                 ini.store(iniFile);
@@ -121,12 +122,13 @@ public class CreateConfigAction extends AnAction {
                                 Notifications.Bus.notify(notification);
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при копировании файла", NotificationType.ERROR);
+                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
                                 Notifications.Bus.notify(notification);
                             }
                         });
                     }
                 });
+                popupMenu.add(menuItem);
                 menuComponents.add(menuItem);
             }
         }
@@ -144,9 +146,33 @@ public class CreateConfigAction extends AnAction {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Открытие всплывающего окна для настроек
-                String newDownloadDir = Messages.showInputDialog(project, "Введите новое значение для DOWNLOAD_DIR:", "Настройки", Messages.getQuestionIcon(), getDownloadDir(), null, null, StandardCharsets.UTF_8.name());
-                if (newDownloadDir != null) {
+                JPanel panel = new JPanel(new GridLayout(2, 2));
+                JBLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR:");
+                JBTextField downloadDirField = new JBTextField(getDownloadDir());
+                JBLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS:");
+                JBTextField authServiceAddressField = new JBTextField(getAuthServiceAddress());
+
+                panel.add(downloadDirLabel);
+                panel.add(downloadDirField);
+                panel.add(authServiceAddressLabel);
+                panel.add(authServiceAddressField);
+
+                int result = JOptionPane.showOptionDialog(
+                        null, // Родительское окно
+                        panel, // Компонент содержимого
+                        "Настройки", // Заголовок окна
+                        JOptionPane.OK_CANCEL_OPTION, // Тип диалога
+                        JOptionPane.PLAIN_MESSAGE, // Тип сообщения
+                        null, // Иконка (может быть null)
+                        new String[]{"OK", "Cancel"}, // Опции диалога
+                        "OK" // Опция по умолчанию
+                );
+
+                if (result == 0) {
+                    String newDownloadDir = downloadDirField.getText();
+                    String newAuthServiceAddress = authServiceAddressField.getText();
                     setDownloadDir(newDownloadDir); // Установка нового значения downloadDir
+                    setAuthServiceAddress(newAuthServiceAddress); // Установка нового значения authServiceAddress
                 }
             }
         });
@@ -160,12 +186,20 @@ public class CreateConfigAction extends AnAction {
         }
     }
 
-    // Добавляем геттер и сеттер для downloadDir
+    // Добавляем геттеры и сеттеры для downloadDir и authServiceAddress
     public String getDownloadDir() {
         return downloadDir;
     }
 
     public void setDownloadDir(String downloadDir) {
         this.downloadDir = downloadDir;
+    }
+
+    public String getAuthServiceAddress() {
+        return authServiceAddress;
+    }
+
+    public void setAuthServiceAddress(String authServiceAddress) {
+        this.authServiceAddress = authServiceAddress;
     }
 }
