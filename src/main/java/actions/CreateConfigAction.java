@@ -40,6 +40,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.prefs.Preferences;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class CreateConfigAction extends AnAction {
     private static String downloadDir; // Объявляем переменную downloadDir как статическую
@@ -75,6 +78,7 @@ public class CreateConfigAction extends AnAction {
 
         // Создание попап-меню
         JPopupMenu popupMenu = new JPopupMenu();
+        List<Component> menuComponents = new ArrayList<>();
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
@@ -111,7 +115,9 @@ public class CreateConfigAction extends AnAction {
                                 ini.store(iniFile);
 
                                 // Показ всплывающего уведомления
-                                Notification notification = new Notification("ConfigCopy", "Успешно", "Файл скопирован", NotificationType.INFORMATION);
+                                String configName = configFile.getName();
+                                String notificationMessage = "Установлен config: " + configName;
+                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
                                 Notifications.Bus.notify(notification);
                             } catch (IOException ex) {
                                 ex.printStackTrace();
@@ -121,8 +127,15 @@ public class CreateConfigAction extends AnAction {
                         });
                     }
                 });
-                popupMenu.add(menuItem);
+                menuComponents.add(menuItem);
             }
+        }
+
+        menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
+
+        popupMenu.removeAll();
+        for (Component component : menuComponents) {
+            popupMenu.add(component);
         }
 
         // Создание кнопки "Настройки"
