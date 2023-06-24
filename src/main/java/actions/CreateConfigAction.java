@@ -123,17 +123,11 @@ public class CreateConfigAction extends AnAction {
                         });
                     }
                 });
-                popupMenu.add(menuItem);
                 menuComponents.add(menuItem);
             }
         }
 
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
-
-        popupMenu.removeAll();
-        for (Component component : menuComponents) {
-            popupMenu.add(component);
-        }
 
         // Создание кнопки "Настройки"
         JMenuItem settingsItem = new JMenuItem("Настройки");
@@ -176,6 +170,12 @@ public class CreateConfigAction extends AnAction {
                 }
             }
         });
+
+        // Добавление элементов в попап-меню
+        for (Component component : menuComponents) {
+            popupMenu.add(component);
+        }
+        popupMenu.addSeparator();
         popupMenu.add(settingsItem);
 
         // Отображение попап-меню
