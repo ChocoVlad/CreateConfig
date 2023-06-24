@@ -38,15 +38,18 @@ import java.io.*;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.prefs.Preferences;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.prefs.Preferences;
 
 public class CreateConfigAction extends AnAction {
-    private static String downloadDir; // Объявляем переменную downloadDir как статическую
-    private static String authServiceAddress; // Объявляем переменную authServiceAddress как статическую
+    private static final String PREF_DOWNLOAD_DIR = "downloadDir";
+    private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAddress";
+
+    private String downloadDir;
+    private String authServiceAddress;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -103,17 +106,17 @@ public class CreateConfigAction extends AnAction {
                                 // Загружаем ini-файл
                                 ini.load(iniFile);
 
-                                // Создаем раздел [custom], если он не существует
+                                // Создаем раздел [general], если он не существует
                                 if (!ini.containsKey("general")) {
                                     ini.add("general");
                                 }
 
                                 // Добавляем параметры DOWNLOAD_DIR и AUTH_SERVICE_ADDRESS в раздел [general]
-                                if (!StringUtil.isEmptyOrSpaces(getDownloadDir())) {
-                                    ini.get("general").put("DOWNLOAD_DIR", getDownloadDir());
+                                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
+                                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
                                 }
-                                if (!StringUtil.isEmptyOrSpaces(getAuthServiceAddress())) {
-                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", getAuthServiceAddress());
+                                if (!StringUtil.isEmptyOrSpaces(authServiceAddress)) {
+                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", authServiceAddress);
                                 }
 
                                 // Сохраняем ini-файл
@@ -152,9 +155,9 @@ public class CreateConfigAction extends AnAction {
                 // Открытие всплывающего окна для настроек
                 JPanel panel = new JPanel(new GridLayout(2, 2));
                 JBLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR:");
-                JBTextField downloadDirField = new JBTextField(getDownloadDir());
+                JBTextField downloadDirField = new JBTextField(downloadDir);
                 JBLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS:");
-                JBTextField authServiceAddressField = new JBTextField(getAuthServiceAddress());
+                JBTextField authServiceAddressField = new JBTextField(authServiceAddress);
 
                 panel.add(downloadDirLabel);
                 panel.add(downloadDirField);
@@ -177,6 +180,11 @@ public class CreateConfigAction extends AnAction {
                     String newAuthServiceAddress = authServiceAddressField.getText();
                     setDownloadDir(newDownloadDir); // Установка нового значения downloadDir
                     setAuthServiceAddress(newAuthServiceAddress); // Установка нового значения authServiceAddress
+
+                    // Сохранение настроек
+                    Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
+                    preferences.put(PREF_DOWNLOAD_DIR, newDownloadDir);
+                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, newAuthServiceAddress);
                 }
             }
         });
@@ -188,6 +196,16 @@ public class CreateConfigAction extends AnAction {
             JComponent jComponent = (JComponent) component;
             popupMenu.show(jComponent, 0, jComponent.getHeight());
         }
+    }
+
+    @Override
+    public void update(AnActionEvent e) {
+        super.update(e);
+
+        // Загрузка сохраненных настроек
+        Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
+        downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
+        authServiceAddress = preferences.get(PREF_AUTH_SERVICE_ADDRESS, "");
     }
 
     // Добавляем геттеры и сеттеры для downloadDir и authServiceAddress
