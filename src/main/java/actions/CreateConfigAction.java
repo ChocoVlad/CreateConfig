@@ -14,14 +14,21 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.ui.Messages;
+import org.ini4j.Ini;
+import org.ini4j.IniPreferences;
 
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.util.prefs.Preferences;
+
 public class CreateConfigAction extends AnAction {
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -58,33 +65,7 @@ public class CreateConfigAction extends AnAction {
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
                 JMenuItem menuItem = new JMenuItem(configFile.getName());
-
-                // Подменю для кнопок "Run" и "Debug"
-                JPopupMenu subMenu = new JPopupMenu();
-                JMenuItem runItem = new JMenuItem("Run");
-                JMenuItem debugItem = new JMenuItem("Debug");
-                subMenu.add(runItem);
-                subMenu.add(debugItem);
-
-                menuItem.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseEntered(MouseEvent e) {
-                        if (!subMenu.isVisible()) {
-                            Point location = menuItem.getLocationOnScreen();
-                            subMenu.setLocation(location.x + menuItem.getWidth(), location.y);
-                            subMenu.setVisible(true);
-                        }
-                    }
-
-                    @Override
-                    public void mouseExited(MouseEvent e) {
-                        if (subMenu.isVisible()) {
-                            subMenu.setVisible(false);
-                        }
-                    }
-                });
-
-                runItem.addActionListener(new ActionListener() {
+                menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         Application application = ApplicationManager.getApplication();
@@ -93,40 +74,46 @@ public class CreateConfigAction extends AnAction {
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
+                                // Добавление параметров в config.ini
+                                File iniFile = new File(destinationFile.getPath());
+                                iniFile.createNewFile();
+
+                                Ini ini = new Ini();
+                                ini.load(new FileReader(iniFile));
+
+                                // Создаем раздел [custom], если он не существует
+                                if (!ini.containsKey("custom")) {
+                                    ini.add("custom");
+                                }
+
+                                // Добавляем параметры DOWNLOAD_DIR и HIGHLIGHT_ACTION в раздел [custom]
+                                ini.get("custom").put("DOWNLOAD_DIR", "C:\\Download");
+                                ini.get("custom").put("HIGHLIGHT_ACTION", "True");
+
+                                FileWriter writer = new FileWriter(iniFile);
+                                ini.store(writer);
+                                writer.close();
+
                                 // Показ всплывающего уведомления
                                 Notification notification = new Notification("ConfigCopy", "Successful", "Copy successful", NotificationType.INFORMATION);
                                 Notifications.Bus.notify(notification);
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-
-                                // Показ всплывающего уведомления об ошибке
-                                Notification notification = new Notification("ConfigCopy", "Error", "An error occurred while copying the config file", NotificationType.ERROR);
+                                Notification notification = new Notification("ConfigCopy", "Error", "Error copying file", NotificationType.ERROR);
                                 Notifications.Bus.notify(notification);
                             }
                         });
                     }
                 });
-
-                debugItem.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        // Ваш код для запуска отладки файла
-                        // ...
-                    }
-                });
-
-                menuItem.add(subMenu);
                 popupMenu.add(menuItem);
             }
         }
 
         // Отображение попап-меню
-        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-        if (editor != null) {
-            JComponent editorComponent = editor.getComponent();
-            int x = editorComponent.getLocationOnScreen().x;
-            int y = editorComponent.getLocationOnScreen().y + editorComponent.getHeight();
-            popupMenu.show(editorComponent, x, y);
+        Component component = e.getInputEvent().getComponent();
+        if (component instanceof JComponent) {
+            JComponent jComponent = (JComponent) component;
+            popupMenu.show(jComponent, 0, jComponent.getHeight());
         }
     }
 }
