@@ -123,6 +123,11 @@ public class CreateConfigAction extends AnAction {
                                 // Сохраняем ini-файл
                                 ini.store(iniFile);
 
+                                // Обновляем файл config.ini в IDE
+                                if (destinationFile != null) {
+                                    destinationFile.refresh(false, true); // Обновляем файл
+                                }
+
                                 // Показ всплывающего уведомления
                                 String notificationMessage = "Установлен config: " + configName;
                                 Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
