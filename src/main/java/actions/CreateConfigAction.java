@@ -11,32 +11,19 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.ui.DialogWrapper;
-import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
-import org.ini4j.Ini;
-import org.ini4j.IniPreferences;
 import org.ini4j.Wini;
 
 import javax.swing.*;
-import javax.swing.event.MenuEvent;
-import javax.swing.event.MenuListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.io.*;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -115,7 +102,9 @@ public class CreateConfigAction extends AnAction {
                                 if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
                                     ini.get("general").put("DOWNLOAD_DIR", downloadDir);
                                 }
-                                if (!StringUtil.isEmptyOrSpaces(authServiceAddress)) {
+                                // Добавляем параметр AUTH_SERVICE_ADDRESS только для выбранных элементов, у которых в начале названия нет слов fix, test, pre_test
+                                String configName = configFile.getName();
+                                if (!StringUtil.isEmptyOrSpaces(authServiceAddress) && !configName.startsWith("fix") && !configName.startsWith("test") && !configName.startsWith("pre_test")) {
                                     ini.get("general").put("AUTH_SERVICE_ADDRESS", authServiceAddress);
                                 }
 
@@ -123,7 +112,6 @@ public class CreateConfigAction extends AnAction {
                                 ini.store(iniFile);
 
                                 // Показ всплывающего уведомления
-                                String configName = configFile.getName();
                                 String notificationMessage = "Установлен config: " + configName;
                                 Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
                                 Notifications.Bus.notify(notification);
