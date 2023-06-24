@@ -1,3 +1,7 @@
+//@formatter:off
+// -*- coding: utf-8 -*-
+//@formatter:on
+
 package actions;
 
 import com.intellij.notification.Notification;
@@ -11,11 +15,17 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.ui.ValidationInfo;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.ui.Messages;
+import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBTextField;
 import org.ini4j.Ini;
 import org.ini4j.IniPreferences;
+import org.ini4j.Wini;
 
 import javax.swing.*;
 import javax.swing.event.MenuEvent;
@@ -24,12 +34,16 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.*;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.prefs.Preferences;
+import java.nio.charset.StandardCharsets;
 
 public class CreateConfigAction extends AnAction {
+    private static String downloadDir; // Объявляем переменную downloadDir как статическую
+
     @Override
     public void actionPerformed(AnActionEvent e) {
         Project project = e.getProject();
@@ -87,19 +101,17 @@ public class CreateConfigAction extends AnAction {
                                 }
 
                                 // Добавляем параметры DOWNLOAD_DIR и HIGHLIGHT_ACTION в раздел [custom]
-                                ini.get("custom").put("DOWNLOAD_DIR", "C:\\Download");
+                                ini.get("custom").put("DOWNLOAD_DIR", getDownloadDir());
                                 ini.get("custom").put("HIGHLIGHT_ACTION", "True");
 
-                                FileWriter writer = new FileWriter(iniFile);
-                                ini.store(writer);
-                                writer.close();
+                                ini.store(iniFile);
 
                                 // Показ всплывающего уведомления
-                                Notification notification = new Notification("ConfigCopy", "Successful", "Copy successful", NotificationType.INFORMATION);
+                                Notification notification = new Notification("ConfigCopy", "Успешно", "Файл скопирован", NotificationType.INFORMATION);
                                 Notifications.Bus.notify(notification);
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-                                Notification notification = new Notification("ConfigCopy", "Error", "Error copying file", NotificationType.ERROR);
+                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при копировании файла", NotificationType.ERROR);
                                 Notifications.Bus.notify(notification);
                             }
                         });
@@ -109,11 +121,34 @@ public class CreateConfigAction extends AnAction {
             }
         }
 
+        // Создание кнопки "Настройки"
+        JMenuItem settingsItem = new JMenuItem("Настройки");
+        settingsItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Открытие всплывающего окна для настроек
+                String newDownloadDir = Messages.showInputDialog(project, "Введите новое значение для DOWNLOAD_DIR:", "Настройки", Messages.getQuestionIcon(), getDownloadDir(), null, null, StandardCharsets.UTF_8.name());
+                if (newDownloadDir != null) {
+                    setDownloadDir(newDownloadDir); // Установка нового значения downloadDir
+                }
+            }
+        });
+        popupMenu.add(settingsItem);
+
         // Отображение попап-меню
         Component component = e.getInputEvent().getComponent();
         if (component instanceof JComponent) {
             JComponent jComponent = (JComponent) component;
             popupMenu.show(jComponent, 0, jComponent.getHeight());
         }
+    }
+
+    // Добавляем геттер и сеттер для downloadDir
+    public String getDownloadDir() {
+        return downloadDir;
+    }
+
+    public void setDownloadDir(String downloadDir) {
+        this.downloadDir = downloadDir;
     }
 }

@@ -10,6 +10,10 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
 }
+dependencies {
+    implementation("org.ini4j:ini4j:0.5.4")
+    implementation("com.intellij:forms_rt:7.0.3")
+}
 
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
@@ -25,6 +29,7 @@ tasks {
     withType<JavaCompile> {
         sourceCompatibility = "11"
         targetCompatibility = "11"
+        options.encoding = "UTF-8"
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions.jvmTarget = "11"
