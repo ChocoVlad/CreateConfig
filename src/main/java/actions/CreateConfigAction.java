@@ -34,6 +34,7 @@ import java.util.prefs.Preferences;
 public class CreateConfigAction extends AnAction {
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
     private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAddress";
+    private static final String TEST_FILES_PARAM = "TEST_FILES";
 
     private String downloadDir;
     private String authServiceAddress;
@@ -106,6 +107,17 @@ public class CreateConfigAction extends AnAction {
                                 String configName = configFile.getName();
                                 if (!StringUtil.isEmptyOrSpaces(authServiceAddress) && !configName.startsWith("fix") && !configName.startsWith("test") && !configName.startsWith("pre_test")) {
                                     ini.get("general").put("AUTH_SERVICE_ADDRESS", authServiceAddress);
+                                }
+
+                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
+                                VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                                if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                                    // Проверяем наличие раздела custom в config.ni
+                                    if (!ini.containsKey("custom")) {
+                                        ini.add("custom");
+                                    }
+                                    //Добавляем TEST_FILES с путем до файла test-files в config.ini
+                                    ini.get("custom").put(TEST_FILES_PARAM, testFilesDirectory.getPath());
                                 }
 
                                 // Сохраняем ini-файл
