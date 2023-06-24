@@ -108,9 +108,13 @@ public class CreateConfigAction extends AnAction {
                                     ini.add("general");
                                 }
 
-                                // Добавляем параметры DOWNLOAD_DIR и HIGHLIGHT_ACTION в раздел [custom]
-                                ini.get("general").put("DOWNLOAD_DIR", getDownloadDir());
-                                ini.get("general").put("AUTH_SERVICE_ADDRESS", getAuthServiceAddress());
+                                // Добавляем параметры DOWNLOAD_DIR и AUTH_SERVICE_ADDRESS в раздел [general]
+                                if (!StringUtil.isEmptyOrSpaces(getDownloadDir())) {
+                                    ini.get("general").put("DOWNLOAD_DIR", getDownloadDir());
+                                }
+                                if (!StringUtil.isEmptyOrSpaces(getAuthServiceAddress())) {
+                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", getAuthServiceAddress());
+                                }
 
                                 // Сохраняем ini-файл
                                 ini.store(iniFile);
