@@ -92,8 +92,11 @@ public class CreateConfigAction extends AnAction {
                                 File iniFile = new File(destinationFile.getPath());
                                 iniFile.createNewFile();
 
-                                Ini ini = new Ini();
-                                ini.load(new FileReader(iniFile));
+                                Wini ini = new Wini();
+                                ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+
+                                // Загружаем ini-файл
+                                ini.load(iniFile);
 
                                 // Создаем раздел [custom], если он не существует
                                 if (!ini.containsKey("custom")) {
@@ -104,6 +107,7 @@ public class CreateConfigAction extends AnAction {
                                 ini.get("custom").put("DOWNLOAD_DIR", getDownloadDir());
                                 ini.get("custom").put("HIGHLIGHT_ACTION", "True");
 
+                                // Сохраняем ini-файл
                                 ini.store(iniFile);
 
                                 // Показ всплывающего уведомления
