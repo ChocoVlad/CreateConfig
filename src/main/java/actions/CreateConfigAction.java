@@ -4,6 +4,7 @@
 
 package actions;
 
+import com.intellij.icons.AllIcons;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -112,7 +113,7 @@ public class CreateConfigAction extends AnAction {
                                 // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
                                 VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
                                 if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                    // Проверяем наличие раздела custom в config.ni
+                                    // Проверяем наличие раздела custom в config.ini
                                     if (!ini.containsKey("custom")) {
                                         ini.add("custom");
                                     }
@@ -146,8 +147,8 @@ public class CreateConfigAction extends AnAction {
 
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
-        // Создание кнопки "Настройки"
-        JMenuItem settingsItem = new JMenuItem("Настройки");
+        // Создание кнопки "Настройки" с иконкой
+        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.Settings);
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -230,3 +231,6 @@ public class CreateConfigAction extends AnAction {
         this.authServiceAddress = authServiceAddress;
     }
 }
+
+
+
