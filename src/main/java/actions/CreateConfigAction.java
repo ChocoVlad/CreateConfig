@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.prefs.Preferences;
 
+// Определение класса CreateConfigAction
 public class CreateConfigAction extends AnAction {
 
     // Константы для ключей настроек
@@ -50,12 +51,13 @@ public class CreateConfigAction extends AnAction {
 
     @Override
     public void actionPerformed(AnActionEvent e) {
+        // Получение проекта из AnActionEvent
         Project project = e.getProject();
         if (project == null) {
             return;
         }
 
-        // Сохранение всех файлов
+        // Сохранение всех открытых документов
         FileDocumentManager.getInstance().saveAllDocuments();
 
         // Получение текущего открытого файла в превью

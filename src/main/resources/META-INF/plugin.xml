@@ -15,9 +15,26 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description>
         <![CDATA[
-                The CreateConfig plugin allows you to select one of the configs located in the config folder, which in turn is decrypted at the same level as the previous file
-                Java
-                Gradle
+    "CreateConfig" is a plugin that allows you to easily create and install configuration files in your project.
+
+    Key features:
+    - Create and install configuration files in your project.
+    - Support for customizable settings.
+
+    Usage:
+    1. Open your project.
+    2. Click "Create Config" from the toolbar.
+    3. Select the file in which you want to install the configuration.
+    4. In the popup menu, select one of the available configuration files.
+
+    Set configuration:
+    1. Open your project.
+    2. Click "Create Config" from the toolbar.
+    3. Select "Settings" in the popup menu.
+    4. Select customization options.
+    4. Click "OK" to install the configuration.
+
+    The "CreateConfig" plugin simplifies the process of creating and installing configuration files in projects, enhancing development productivity and providing greater flexibility in project setup.
     ]]>
     </description>
 
