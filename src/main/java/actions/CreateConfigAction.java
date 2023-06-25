@@ -171,8 +171,8 @@ public class CreateConfigAction extends AnAction {
                         JOptionPane.OK_CANCEL_OPTION, // Тип диалога
                         JOptionPane.PLAIN_MESSAGE, // Тип сообщения
                         null, // Иконка (может быть null)
-                        new String[]{"OK", "Cancel"}, // Опции диалога
-                        "OK" // Опция по умолчанию
+                        new String[]{"Сохранить", "Закрыть"}, // Опции диалога
+                        "Сохранить" // Опция по умолчанию
                 );
 
                 if (result == 0) {
@@ -231,6 +231,3 @@ public class CreateConfigAction extends AnAction {
         this.authServiceAddress = authServiceAddress;
     }
 }
-
-
-
