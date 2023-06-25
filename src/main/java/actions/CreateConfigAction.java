@@ -104,6 +104,7 @@ public class CreateConfigAction extends AnAction {
 
                                 Wini ini = new Wini();
                                 ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+                                ini.getConfig().setStrictOperator(false);
 
                                 // Загружаем ini-файл
                                 ini.load(iniFile);
