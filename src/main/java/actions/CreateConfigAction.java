@@ -79,7 +79,7 @@ public class CreateConfigAction extends AnAction {
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
-                JMenuItem menuItem = new JMenuItem(configFile.getName());
+                JMenuItem menuItem = new JMenuItem(configFile.getName(), AllIcons.FileTypes.Config);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
@@ -152,7 +152,8 @@ public class CreateConfigAction extends AnAction {
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
         // Создание кнопки "Настройки" с иконкой
-        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.Settings);
+        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
+        settingsItem.setToolTipText("Открыть настройки");
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
