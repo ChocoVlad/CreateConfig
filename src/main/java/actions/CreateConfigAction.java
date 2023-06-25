@@ -15,9 +15,9 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.components.JBLabel;
-import com.intellij.ui.components.JBTextField;
 import org.ini4j.Wini;
+import org.jdesktop.swingx.JXLabel;
+import org.jdesktop.swingx.JXTextField;
 
 import javax.swing.*;
 import java.awt.*;
@@ -70,7 +70,7 @@ public class CreateConfigAction extends AnAction {
 
         // Создание попап-меню
         JPopupMenu popupMenu = new JPopupMenu();
-        List<Component> menuComponents = new ArrayList<>();
+        List<JMenuItem> menuItems = new ArrayList<>();
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
@@ -140,11 +140,11 @@ public class CreateConfigAction extends AnAction {
                         });
                     }
                 });
-                menuComponents.add(menuItem);
+                menuItems.add(menuItem);
             }
         }
 
-        menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
+        menuItems.sort(Comparator.comparing(JMenuItem::getText));
 
         // Создание кнопки "Настройки"
         JMenuItem settingsItem = new JMenuItem("Настройки");
@@ -152,15 +152,13 @@ public class CreateConfigAction extends AnAction {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Открытие всплывающего окна для настроек
-                JPanel panel = new JPanel(new GridLayout(2, 2));
-                JBLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR:");
-                JBTextField downloadDirField = new JBTextField(downloadDir);
-                JBLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS:");
-                JBTextField authServiceAddressField = new JBTextField(authServiceAddress);
+                JXTextField downloadDirField = new JXTextField(downloadDir);
+                JXTextField authServiceAddressField = new JXTextField(authServiceAddress);
 
-                panel.add(downloadDirLabel);
+                JPanel panel = new JPanel(new GridLayout(2, 2));
+                panel.add(new JXLabel("DOWNLOAD_DIR:"));
                 panel.add(downloadDirField);
-                panel.add(authServiceAddressLabel);
+                panel.add(new JXLabel("AUTH_SERVICE_ADDRESS:"));
                 panel.add(authServiceAddressField);
 
                 int result = JOptionPane.showOptionDialog(
@@ -171,62 +169,45 @@ public class CreateConfigAction extends AnAction {
                         JOptionPane.PLAIN_MESSAGE, // Тип сообщения
                         null, // Иконка (может быть null)
                         new String[]{"OK", "Cancel"}, // Опции диалога
-                        "OK" // Опция по умолчанию
+                        "OK" // Выбранная опция по умолчанию
                 );
 
-                if (result == 0) {
-                    String newDownloadDir = downloadDirField.getText();
-                    String newAuthServiceAddress = authServiceAddressField.getText();
-                    setDownloadDir(newDownloadDir); // Установка нового значения downloadDir
-                    setAuthServiceAddress(newAuthServiceAddress); // Установка нового значения authServiceAddress
+                if (result == JOptionPane.OK_OPTION) {
+                    downloadDir = downloadDirField.getText();
+                    authServiceAddress = authServiceAddressField.getText();
 
-                    // Сохранение настроек
-                    Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
-                    preferences.put(PREF_DOWNLOAD_DIR, newDownloadDir);
-                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, newAuthServiceAddress);
+                    // Сохранение настроек в Preferences
+                    Preferences preferences = Preferences.userNodeForPackage(getClass());
+                    preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
+                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, authServiceAddress);
                 }
             }
         });
 
-        // Добавление элементов в попап-меню
-        for (Component component : menuComponents) {
-            popupMenu.add(component);
-        }
-        popupMenu.addSeparator();
         popupMenu.add(settingsItem);
+        popupMenu.addSeparator();
+
+        for (JMenuItem menuItem : menuItems) {
+            popupMenu.add(menuItem);
+        }
 
         // Отображение попап-меню
         Component component = e.getInputEvent().getComponent();
-        if (component instanceof JComponent) {
-            JComponent jComponent = (JComponent) component;
-            popupMenu.show(jComponent, 0, jComponent.getHeight());
+        if (component != null && component instanceof JComponent) {
+            popupMenu.show((JComponent) component, 0, 0);
         }
     }
 
     @Override
     public void update(AnActionEvent e) {
-        super.update(e);
-
-        // Загрузка сохраненных настроек
-        Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
+        // Загрузка сохраненных настроек из Preferences
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
         authServiceAddress = preferences.get(PREF_AUTH_SERVICE_ADDRESS, "");
-    }
 
-    // Добавляем геттеры и сеттеры для downloadDir и authServiceAddress
-    public String getDownloadDir() {
-        return downloadDir;
-    }
-
-    public void setDownloadDir(String downloadDir) {
-        this.downloadDir = downloadDir;
-    }
-
-    public String getAuthServiceAddress() {
-        return authServiceAddress;
-    }
-
-    public void setAuthServiceAddress(String authServiceAddress) {
-        this.authServiceAddress = authServiceAddress;
+        // Включение или отключение доступности действия в зависимости от наличия открытого проекта и выбранного файла
+        Project project = e.getProject();
+        VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
+        e.getPresentation().setEnabled(project != null && selectedFiles.length > 0);
     }
 }
