@@ -34,12 +34,19 @@ import java.util.List;
 import java.util.prefs.Preferences;
 
 public class CreateConfigAction extends AnAction {
+
+    // Константы для ключей настроек
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
     private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAddress";
+    private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
+    private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
     private static final String TEST_FILES_PARAM = "TEST_FILES";
 
+    // Поля для хранения настроек
     private String downloadDir;
     private String authServiceAddress;
+    private boolean highlightActionEnabled;
+    private boolean testfilesActionEnabled;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -114,15 +121,25 @@ public class CreateConfigAction extends AnAction {
                                     ini.get("general").put("AUTH_SERVICE_ADDRESS", authServiceAddress);
                                 }
 
-                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
-                                VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                                if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                    // Проверяем наличие раздела custom в config.ini
+                                if (highlightActionEnabled) {
+                                    // Создаем раздел [custom], если он не существует
                                     if (!ini.containsKey("custom")) {
                                         ini.add("custom");
                                     }
-                                    //Добавляем TEST_FILES с путем до файла test-files в config.ini
-                                    ini.get("custom").put(TEST_FILES_PARAM, testFilesDirectory.getPath());
+                                    ini.get("custom").put("HIGHLIGHT_ACTION", "True");
+                                }
+
+                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
+                                if (testfilesActionEnabled) {
+                                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                                        // Создаем раздел [custom], если он не существует
+                                        if (!ini.containsKey("custom")) {
+                                            ini.add("custom");
+                                        }
+                                        //Добавляем TEST_FILES с путем до файла test-files в config.ini
+                                        ini.get("custom").put(TEST_FILES_PARAM, testFilesDirectory.getPath());
+                                    }
                                 }
 
                                 // Сохраняем ini-файл
@@ -158,38 +175,56 @@ public class CreateConfigAction extends AnAction {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Открытие всплывающего окна для настроек
-                JPanel panel = new JPanel(new GridLayout(2, 2));
-                JBLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR:");
-                JBTextField downloadDirField = new JBTextField(downloadDir);
-                JBLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS:");
-                JBTextField authServiceAddressField = new JBTextField(authServiceAddress);
+                JPanel panel = new JPanel(new GridBagLayout());
+                GridBagConstraints constraints = new GridBagConstraints();
+                constraints.gridx = 0;
+                constraints.gridy = 0;
+                constraints.anchor = GridBagConstraints.WEST;
 
-                panel.add(downloadDirLabel);
-                panel.add(downloadDirField);
-                panel.add(authServiceAddressLabel);
-                panel.add(authServiceAddressField);
+                // Создание компонентов всплывающего окна
+                JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
+                JBTextField downloadDirTextField = new JBTextField(downloadDir);
+                downloadDirTextField.setPreferredSize(new Dimension(400, 30));
 
-                int result = JOptionPane.showOptionDialog(
-                        null, // Родительское окно
-                        panel, // Компонент содержимого
-                        "Настройки", // Заголовок окна
-                        JOptionPane.OK_CANCEL_OPTION, // Тип диалога
-                        JOptionPane.PLAIN_MESSAGE, // Тип сообщения
-                        null, // Иконка (может быть null)
-                        new String[]{"Сохранить", "Закрыть"}, // Опции диалога
-                        "Сохранить" // Опция по умолчанию
-                );
+                JLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS");
+                JBTextField authServiceAddressTextField = new JBTextField(authServiceAddress);
+                authServiceAddressTextField.setPreferredSize(new Dimension(400, 30));
 
-                if (result == 0) {
-                    String newDownloadDir = downloadDirField.getText();
-                    String newAuthServiceAddress = authServiceAddressField.getText();
-                    setDownloadDir(newDownloadDir); // Установка нового значения downloadDir
-                    setAuthServiceAddress(newAuthServiceAddress); // Установка нового значения authServiceAddress
+                JCheckBox highlightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
+                highlightActionCheckbox.setSelected(highlightActionEnabled);
 
-                    // Сохранение настроек
-                    Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
-                    preferences.put(PREF_DOWNLOAD_DIR, newDownloadDir);
-                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, newAuthServiceAddress);
+                JCheckBox testfilesActionCheckbox = new JCheckBox("TEST_FILES");
+                testfilesActionCheckbox.setSelected(testfilesActionEnabled);
+
+
+                // Добавление компонентов в панель
+                panel.add(downloadDirLabel, constraints);
+                constraints.gridy++;
+                panel.add(downloadDirTextField, constraints);
+                constraints.gridy++;
+                panel.add(authServiceAddressLabel, constraints);
+                constraints.gridy++;
+                panel.add(authServiceAddressTextField, constraints);
+                constraints.gridy++;
+                panel.add(highlightActionCheckbox, constraints);
+                constraints.gridy++;
+                panel.add(testfilesActionCheckbox, constraints);
+
+                // Отображение всплывающего окна
+                int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
+
+                if (option == JOptionPane.OK_OPTION) {
+                    downloadDir = downloadDirTextField.getText();
+                    authServiceAddress = authServiceAddressTextField.getText();
+                    highlightActionEnabled = highlightActionCheckbox.isSelected();
+                    testfilesActionEnabled = testfilesActionCheckbox.isSelected();
+
+                    Preferences preferences = Preferences.userNodeForPackage(getClass());
+                    preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
+                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, authServiceAddress);
+                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highlightActionEnabled);
+                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testfilesActionEnabled);
+
                 }
             }
         });
@@ -213,10 +248,13 @@ public class CreateConfigAction extends AnAction {
     public void update(AnActionEvent e) {
         super.update(e);
 
-        // Загрузка сохраненных настроек
-        Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
         authServiceAddress = preferences.get(PREF_AUTH_SERVICE_ADDRESS, "");
+        highlightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
+        testfilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
+
+        e.getPresentation().setEnabledAndVisible(true);
     }
 
     // Добавляем геттеры и сеттеры для downloadDir и authServiceAddress
