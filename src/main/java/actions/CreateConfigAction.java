@@ -12,6 +12,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
@@ -46,6 +47,9 @@ public class CreateConfigAction extends AnAction {
         if (project == null) {
             return;
         }
+
+        // Сохранение всех файлов
+        FileDocumentManager.getInstance().saveAllDocuments();
 
         // Получение текущего открытого файла в превью
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
