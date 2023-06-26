@@ -19,9 +19,11 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
+import com.intellij.util.ui.JBUI;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -31,35 +33,26 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.prefs.Preferences;
 
 // Определение класса CreateConfigAction
 public class CreateConfigAction extends AnAction {
 
-    // Константы для ключей настроек
-    private static final String PREF_DOWNLOAD_DIR = "downloadDir";
-    private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
-    private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
-    private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
+    // Поля для хранения введенных параметров
+    private List<String> parameterNames = new ArrayList<>();
+    private List<String> parameterValues = new ArrayList<>();
+    private List<String> sectionNames = new ArrayList<>();
 
-    // Поля для хранения настроек
-    private String downloadDir;
-    private boolean highlightActionEnabled;
-    private boolean authServiceActionEnabled;
-    private boolean testfilesActionEnabled;
+    private DefaultTableModel parameterTableModel;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        // Получение проекта из AnActionEvent
         Project project = e.getProject();
         if (project == null) {
             return;
         }
 
-        // Сохранение всех открытых документов
         FileDocumentManager.getInstance().saveAllDocuments();
 
-        // Получение текущего открытого файла в превью
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
@@ -81,7 +74,6 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
-        // Создание попап-меню
         JPopupMenu popupMenu = new JPopupMenu();
         List<Component> menuComponents = new ArrayList<>();
 
@@ -97,7 +89,6 @@ public class CreateConfigAction extends AnAction {
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
-                                // Добавление параметров в config.ini
                                 File iniFile = new File(destinationFile.getPath());
                                 iniFile.createNewFile();
 
@@ -105,49 +96,26 @@ public class CreateConfigAction extends AnAction {
                                 ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                                 ini.getConfig().setLowerCaseOption(false);
 
-                                // Загружаем ini-файл
                                 ini.load(iniFile);
 
-                                // Создаем раздел [general], если он не существует
-                                if (!ini.containsKey("general")) {
-                                    ini.add("general");
-                                }
+                                for (int i = 0; i < parameterNames.size(); i++) {
+                                    String parameterName = parameterNames.get(i);
+                                    String parameterValue = parameterValues.get(i);
+                                    String sectionName = sectionNames.get(i);
 
-                                // Добавляем параметр DOWNLOAD_DIR в раздел [general]
-                                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
-                                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
-                                }
-
-                                if (highlightActionEnabled) {
-                                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
-                                }
-                                if (authServiceActionEnabled) {
-                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
-                                }
-
-
-                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
-                                if (testfilesActionEnabled) {
-                                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                        // Создаем раздел [custom], если он не существует
-                                        if (!ini.containsKey("custom")) {
-                                            ini.add("custom");
-                                        }
-                                        //Добавляем TEST_FILES с путем до файла test-files в config.ini
-                                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                                    if (!ini.containsKey(sectionName)) {
+                                        ini.add(sectionName);
                                     }
+
+                                    ini.get(sectionName).put(parameterName, parameterValue);
                                 }
 
-                                // Сохраняем ini-файл
                                 ini.store(iniFile);
 
-                                // Обновляем файл config.ini в IDE
                                 if (destinationFile != null) {
-                                    destinationFile.refresh(false, true); // Обновляем файл
+                                    destinationFile.refresh(false, true);
                                 }
 
-                                // Показ всплывающего уведомления
                                 String configName = configFile.getName();
                                 String notificationMessage = "Установлен config: " + configName;
                                 Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
@@ -166,72 +134,21 @@ public class CreateConfigAction extends AnAction {
 
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
-        // Создание кнопки "Настройки" с иконкой
-        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
-        settingsItem.setToolTipText("Открыть настройки");
+        JMenu settingsMenu = new JMenu("Настройки");
+        JMenuItem settingsItem = new JMenuItem("Открыть настройки", AllIcons.General.GearPlain);
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Открытие всплывающего окна для настроек
-                JPanel panel = new JPanel(new GridBagLayout());
-                GridBagConstraints constraints = new GridBagConstraints();
-                constraints.gridx = 0;
-                constraints.gridy = 0;
-                constraints.anchor = GridBagConstraints.WEST;
-
-                // Создание компонентов всплывающего окна
-                JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
-                JBTextField downloadDirTextField = new JBTextField(downloadDir);
-                downloadDirTextField.setPreferredSize(new Dimension(400, 30));
-
-                JCheckBox highlightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
-                highlightActionCheckbox.setSelected(highlightActionEnabled);
-
-                JCheckBox authServiceActionCheckbox = new JCheckBox("AUTH_SERVICE_ADDRESS");
-                authServiceActionCheckbox.setSelected(authServiceActionEnabled);
-
-                JCheckBox testfilesActionCheckbox = new JCheckBox("TEST_FILES");
-                testfilesActionCheckbox.setSelected(testfilesActionEnabled);
-
-
-                // Добавление компонентов в панель
-                panel.add(downloadDirLabel, constraints);
-                constraints.gridy++;
-                panel.add(downloadDirTextField, constraints);
-                constraints.gridy++;
-                panel.add(highlightActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(authServiceActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(testfilesActionCheckbox, constraints);
-
-                // Отображение всплывающего окна
-                int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
-
-                if (option == JOptionPane.OK_OPTION) {
-                    downloadDir = downloadDirTextField.getText();
-                    highlightActionEnabled = highlightActionCheckbox.isSelected();
-                    authServiceActionEnabled = authServiceActionCheckbox.isSelected();
-                    testfilesActionEnabled = testfilesActionCheckbox.isSelected();
-
-                    Preferences preferences = Preferences.userNodeForPackage(getClass());
-                    preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
-                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highlightActionEnabled);
-                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testfilesActionEnabled);
-
-                }
+                showSettingsDialog();
             }
         });
+        settingsMenu.add(settingsItem);
+        menuComponents.add(settingsMenu);
 
-        // Добавление элементов в попап-меню
         for (Component component : menuComponents) {
             popupMenu.add(component);
         }
-        popupMenu.addSeparator();
-        popupMenu.add(settingsItem);
 
-        // Отображение попап-меню
         Component component = e.getInputEvent().getComponent();
         if (component instanceof JComponent) {
             JComponent jComponent = (JComponent) component;
@@ -239,25 +156,96 @@ public class CreateConfigAction extends AnAction {
         }
     }
 
-    @Override
-    public void update(AnActionEvent e) {
-        super.update(e);
+    private void showSettingsDialog() {
+        JDialog settingsDialog = new JDialog();
+        settingsDialog.setTitle("Настройки параметров");
+        settingsDialog.setLayout(new BorderLayout());
 
-        Preferences preferences = Preferences.userNodeForPackage(getClass());
-        downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
-        highlightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
-        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
-        testfilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints constraints = new GridBagConstraints();
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.anchor = GridBagConstraints.WEST;
 
-        e.getPresentation().setEnabledAndVisible(true);
-    }
+        JLabel parameterNameLabel = new JLabel("Название параметра: ");
+        JTextField parameterNameTextField = new JTextField();
+        parameterNameTextField.setPreferredSize(new Dimension(200, 24));
+        panel.add(parameterNameLabel, constraints);
+        constraints.gridx++;
+        panel.add(parameterNameTextField, constraints);
 
-    // Добавляем геттеры и сеттеры для downloadDir
-    public String getDownloadDir() {
-        return downloadDir;
-    }
+        constraints.gridy++;
+        constraints.gridx = 0;
+        JLabel parameterValueLabel = new JLabel("Значение параметра: ");
+        JTextField parameterValueTextField = new JTextField();
+        parameterValueTextField.setPreferredSize(new Dimension(200, 24));
+        panel.add(parameterValueLabel, constraints);
+        constraints.gridx++;
+        panel.add(parameterValueTextField, constraints);
 
-    public void setDownloadDir(String downloadDir) {
-        this.downloadDir = downloadDir;
+        constraints.gridy++;
+        constraints.gridx = 0;
+        JLabel sectionNameLabel = new JLabel("Название секции: ");
+        JTextField sectionNameTextField = new JTextField();
+        sectionNameTextField.setPreferredSize(new Dimension(200, 24));
+        panel.add(sectionNameLabel, constraints);
+        constraints.gridx++;
+        panel.add(sectionNameTextField, constraints);
+
+        if (!parameterNames.isEmpty()) {
+            parameterNameTextField.setText(parameterNames.get(parameterNames.size() - 1));
+            parameterValueTextField.setText(parameterValues.get(parameterValues.size() - 1));
+            sectionNameTextField.setText(sectionNames.get(sectionNames.size() - 1));
+        }
+
+        JButton addButton = new JButton("Добавить параметр");
+        addButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String parameterName = parameterNameTextField.getText();
+                String parameterValue = parameterValueTextField.getText();
+                String sectionName = sectionNameTextField.getText();
+
+                if (StringUtil.isNotEmpty(parameterName) && StringUtil.isNotEmpty(parameterValue) && StringUtil.isNotEmpty(sectionName)) {
+                    parameterNames.add(parameterName);
+                    parameterValues.add(parameterValue);
+                    sectionNames.add(sectionName);
+                    parameterTableModel.addRow(new Object[]{parameterName, parameterValue, sectionName});
+                    parameterNameTextField.setText("");
+                    parameterValueTextField.setText("");
+                    sectionNameTextField.setText("");
+                }
+            }
+        });
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 2;
+        panel.add(addButton, constraints);
+
+        parameterTableModel = new DefaultTableModel(new Object[]{"Название параметра", "Значение параметра", "Название секции"}, 0);
+        JTable parameterTable = new JTable(parameterTableModel);
+        JScrollPane tableScrollPane = new JScrollPane(parameterTable);
+        tableScrollPane.setPreferredSize(new Dimension(500, 200));
+
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 2;
+        panel.add(tableScrollPane, constraints);
+
+        settingsDialog.add(panel, BorderLayout.CENTER);
+
+        JButton saveButton = new JButton("Сохранить");
+        saveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                settingsDialog.dispose();
+            }
+        });
+        settingsDialog.add(saveButton, BorderLayout.SOUTH);
+
+        settingsDialog.pack();
+        settingsDialog.setLocationRelativeTo(null);
+        settingsDialog.setModal(true);
+        settingsDialog.setVisible(true);
     }
 }
