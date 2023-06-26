@@ -125,11 +125,7 @@ public class CreateConfigAction extends AnAction {
                                 }
 
                                 if (highlightActionEnabled) {
-                                    // Создаем раздел [custom], если он не существует
-                                    if (!ini.containsKey("custom")) {
-                                        ini.add("custom");
-                                    }
-                                    ini.get("custom").put("HIGHLIGHT_ACTION", "True");
+                                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
                                 }
 
                                 // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
