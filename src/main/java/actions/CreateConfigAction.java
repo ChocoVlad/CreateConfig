@@ -4,6 +4,7 @@
 
 package actions;
 
+
 import com.intellij.icons.AllIcons;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -19,7 +20,6 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
-import com.intellij.util.ui.JBUI;
 import org.ini4j.Wini;
 
 import javax.swing.*;
@@ -33,6 +33,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.prefs.Preferences;
+import java.util.prefs.BackingStoreException;
 
 // Определение класса CreateConfigAction
 public class CreateConfigAction extends AnAction {
@@ -43,6 +45,8 @@ public class CreateConfigAction extends AnAction {
     private List<String> sectionNames = new ArrayList<>();
 
     private DefaultTableModel parameterTableModel;
+    private static final String PREFERENCES_NODE = "com.example.config.plugin";
+    private Preferences preferences = Preferences.userRoot().node(PREFERENCES_NODE);
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -107,145 +111,208 @@ public class CreateConfigAction extends AnAction {
                                         ini.add(sectionName);
                                     }
 
-                                    ini.get(sectionName).put(parameterName, parameterValue);
+                                    ini.put(sectionName, parameterName, parameterValue);
                                 }
 
-                                ini.store(iniFile);
-
-                                if (destinationFile != null) {
-                                    destinationFile.refresh(false, true);
-                                }
-
-                                String configName = configFile.getName();
-                                String notificationMessage = "Установлен config: " + configName;
-                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
-                                Notifications.Bus.notify(notification);
+                                ini.store();
+                                Notifications.Bus.notify(new Notification("Config Plugin", "Обновление конфигурации", "Конфигурационный файл был обновлен", NotificationType.INFORMATION));
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
-                                Notifications.Bus.notify(notification);
+                                Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при обновлении конфигурационного файла", NotificationType.ERROR));
                             }
                         });
                     }
                 });
+                popupMenu.add(menuItem);
                 menuComponents.add(menuItem);
             }
         }
 
-        menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
-
-        JMenu settingsMenu = new JMenu("Настройки");
-        JMenuItem settingsItem = new JMenuItem("Открыть настройки", AllIcons.General.GearPlain);
-        settingsItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                showSettingsDialog();
-            }
-        });
-        settingsMenu.add(settingsItem);
-        menuComponents.add(settingsMenu);
-
-        for (Component component : menuComponents) {
-            popupMenu.add(component);
+        if (popupMenu.getComponentCount() > 0) {
+            JButton settingsButton = new JButton("Настройки");
+            settingsButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    showSettingsDialog(project);
+                }
+            });
+            popupMenu.add(settingsButton);
+            menuComponents.add(settingsButton);
         }
 
-        Component component = e.getInputEvent().getComponent();
-        if (component instanceof JComponent) {
-            JComponent jComponent = (JComponent) component;
-            popupMenu.show(jComponent, 0, jComponent.getHeight());
-        }
-    }
+        Component[] components = menuComponents.toArray(new Component[0]);
 
-    private void showSettingsDialog() {
-        JDialog settingsDialog = new JDialog();
-        settingsDialog.setTitle("Настройки параметров");
-        settingsDialog.setLayout(new BorderLayout());
+        Point location = e.getInputEvent().getComponent().getLocationOnScreen();
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+        popupMenu.show(e.getInputEvent().getComponent(), location.x, location.y + 20);
 
-        JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.gridx = 0;
-        constraints.gridy = 0;
-        constraints.anchor = GridBagConstraints.WEST;
-
-        JLabel parameterNameLabel = new JLabel("Название параметра: ");
-        JTextField parameterNameTextField = new JTextField();
-        parameterNameTextField.setPreferredSize(new Dimension(200, 24));
-        panel.add(parameterNameLabel, constraints);
-        constraints.gridx++;
-        panel.add(parameterNameTextField, constraints);
-
-        constraints.gridy++;
-        constraints.gridx = 0;
-        JLabel parameterValueLabel = new JLabel("Значение параметра: ");
-        JTextField parameterValueTextField = new JTextField();
-        parameterValueTextField.setPreferredSize(new Dimension(200, 24));
-        panel.add(parameterValueLabel, constraints);
-        constraints.gridx++;
-        panel.add(parameterValueTextField, constraints);
-
-        constraints.gridy++;
-        constraints.gridx = 0;
-        JLabel sectionNameLabel = new JLabel("Название секции: ");
-        JTextField sectionNameTextField = new JTextField();
-        sectionNameTextField.setPreferredSize(new Dimension(200, 24));
-        panel.add(sectionNameLabel, constraints);
-        constraints.gridx++;
-        panel.add(sectionNameTextField, constraints);
-
-        if (!parameterNames.isEmpty()) {
-            parameterNameTextField.setText(parameterNames.get(parameterNames.size() - 1));
-            parameterValueTextField.setText(parameterValues.get(parameterValues.size() - 1));
-            sectionNameTextField.setText(sectionNames.get(sectionNames.size() - 1));
-        }
-
-        JButton addButton = new JButton("Добавить параметр");
-        addButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String parameterName = parameterNameTextField.getText();
-                String parameterValue = parameterValueTextField.getText();
-                String sectionName = sectionNameTextField.getText();
-
-                if (StringUtil.isNotEmpty(parameterName) && StringUtil.isNotEmpty(parameterValue) && StringUtil.isNotEmpty(sectionName)) {
-                    parameterNames.add(parameterName);
-                    parameterValues.add(parameterValue);
-                    sectionNames.add(sectionName);
-                    parameterTableModel.addRow(new Object[]{parameterName, parameterValue, sectionName});
-                    parameterNameTextField.setText("");
-                    parameterValueTextField.setText("");
-                    sectionNameTextField.setText("");
+        SwingUtilities.invokeLater(() -> {
+            for (Component component : components) {
+                if (component instanceof JButton) {
+                    JButton button = (JButton) component;
+                    button.setRequestFocusEnabled(false);
+                    button.setFocusable(false);
+                    button.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+                    button.setBackground(new JBLabel().getBackground());
                 }
             }
         });
-        constraints.gridy++;
-        constraints.gridx = 0;
-        constraints.gridwidth = 2;
-        panel.add(addButton, constraints);
+    }
 
-        parameterTableModel = new DefaultTableModel(new Object[]{"Название параметра", "Значение параметра", "Название секции"}, 0);
+    private void showSettingsDialog(Project project) {
+        // Создание диалогового окна
+        JDialog dialog = new JDialog();
+        dialog.setTitle("Настройки");
+
+        // Создание панелей и компонентов для диалогового окна
+        JPanel mainPanel = new JPanel();
+        JPanel tablePanel = new JPanel();
+        JPanel buttonPanel = new JPanel();
+
+        parameterTableModel = new DefaultTableModel();
+        parameterTableModel.addColumn("Секция");
+        parameterTableModel.addColumn("Параметр");
+        parameterTableModel.addColumn("Значение");
+
         JTable parameterTable = new JTable(parameterTableModel);
         JScrollPane tableScrollPane = new JScrollPane(parameterTable);
-        tableScrollPane.setPreferredSize(new Dimension(500, 200));
 
-        constraints.gridy++;
-        constraints.gridx = 0;
-        constraints.gridwidth = 2;
-        panel.add(tableScrollPane, constraints);
+        JButton addButton = new JButton("Добавить");
+        addButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                parameterTableModel.addRow(new Object[]{"", "", ""});
+            }
+        });
 
-        settingsDialog.add(panel, BorderLayout.CENTER);
+        JButton removeButton = new JButton("Удалить");
+        removeButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int selectedRow = parameterTable.getSelectedRow();
+                if (selectedRow != -1) {
+                    parameterTableModel.removeRow(selectedRow);
+                }
+            }
+        });
 
         JButton saveButton = new JButton("Сохранить");
         saveButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                settingsDialog.dispose();
+                saveParametersToPreferences();
+                dialog.dispose();
             }
         });
-        settingsDialog.add(saveButton, BorderLayout.SOUTH);
 
-        settingsDialog.pack();
-        settingsDialog.setLocationRelativeTo(null);
-        settingsDialog.setModal(true);
-        settingsDialog.setVisible(true);
+        JButton cancelButton = new JButton("Отмена");
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialog.dispose();
+            }
+        });
+
+        // Установка менеджера компоновки для панелей
+        mainPanel.setLayout(new BorderLayout());
+        tablePanel.setLayout(new BorderLayout());
+        buttonPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+
+        // Добавление компонентов на панели
+        tablePanel.add(tableScrollPane, BorderLayout.CENTER);
+        buttonPanel.add(addButton);
+        buttonPanel.add(removeButton);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+
+        mainPanel.add(tablePanel, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        // Загрузка параметров из preferences
+        loadParametersFromPreferences();
+
+        // Установка параметров в таблицу
+        for (int i = 0; i < sectionNames.size(); i++) {
+            parameterTableModel.addRow(new Object[]{sectionNames.get(i), parameterNames.get(i), parameterValues.get(i)});
+        }
+
+        // Установка диалогового окна
+        dialog.setContentPane(mainPanel);
+        dialog.setSize(500, 300);
+        dialog.setLocationRelativeTo(null);
+        dialog.setModal(true);
+        dialog.setVisible(true);
+    }
+
+    private void saveParametersToPreferences() {
+        try {
+            preferences.clear();
+
+            for (int i = 0; i < parameterTableModel.getRowCount(); i++) {
+                String sectionName = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 0));
+                String parameterName = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 1));
+                String parameterValue = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 2));
+
+                preferences.put(sectionName + "." + parameterName, parameterValue);
+            }
+
+            preferences.flush();
+        } catch (BackingStoreException ex) {
+            ex.printStackTrace();
+            Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при сохранении параметров в настройки", NotificationType.ERROR));
+        }
+    }
+
+    private void loadParametersFromPreferences() {
+        parameterNames.clear();
+        parameterValues.clear();
+        sectionNames.clear();
+
+        try {
+            String[] keys = preferences.keys();
+            for (String key : keys) {
+                int dotIndex = key.indexOf('.');
+                if (dotIndex != -1) {
+                    String sectionName = key.substring(0, dotIndex);
+                    String parameterName = key.substring(dotIndex + 1);
+                    String parameterValue = preferences.get(key, "");
+
+                    sectionNames.add(sectionName);
+                    parameterNames.add(parameterName);
+                    parameterValues.add(parameterValue);
+                }
+            }
+
+            // Сортировка параметров по секциям и именам параметров
+            Comparator<String> sectionComparator = (s1, s2) -> {
+                if (s1.isEmpty() && s2.isEmpty()) {
+                    return 0;
+                } else if (s1.isEmpty()) {
+                    return 1;
+                } else if (s2.isEmpty()) {
+                    return -1;
+                } else {
+                    return s1.compareToIgnoreCase(s2);
+                }
+            };
+
+            Comparator<String> parameterComparator = (p1, p2) -> {
+                if (p1.isEmpty() && p2.isEmpty()) {
+                    return 0;
+                } else if (p1.isEmpty()) {
+                    return 1;
+                } else if (p2.isEmpty()) {
+                    return -1;
+                } else {
+                    return p1.compareToIgnoreCase(p2);
+                }
+            };
+
+            sectionNames.sort(sectionComparator);
+            parameterNames.sort(parameterComparator);
+        } catch (BackingStoreException ex) {
+            ex.printStackTrace();
+            Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при загрузке параметров из настроек", NotificationType.ERROR));
+        }
     }
 }
