@@ -41,7 +41,6 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
     private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
     private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
-    private static final String TEST_FILES_PARAM = "TEST_FILES";
 
     // Поля для хранения настроек
     private String downloadDir;
@@ -136,7 +135,7 @@ public class CreateConfigAction extends AnAction {
                                             ini.add("custom");
                                         }
                                         //Добавляем TEST_FILES с путем до файла test-files в config.ini
-                                        ini.get("custom").put(TEST_FILES_PARAM, testFilesDirectory.getPath());
+                                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
                                     }
                                 }
 
