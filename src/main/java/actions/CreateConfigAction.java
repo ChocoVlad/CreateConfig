@@ -38,15 +38,15 @@ public class CreateConfigAction extends AnAction {
 
     // Константы для ключей настроек
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
-    private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAddress";
     private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
+    private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
     private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
     private static final String TEST_FILES_PARAM = "TEST_FILES";
 
     // Поля для хранения настроек
     private String downloadDir;
-    private String authServiceAddress;
     private boolean highlightActionEnabled;
+    private boolean authServiceActionEnabled;
     private boolean testfilesActionEnabled;
 
     @Override
@@ -114,19 +114,18 @@ public class CreateConfigAction extends AnAction {
                                     ini.add("general");
                                 }
 
-                                // Добавляем параметры DOWNLOAD_DIR и AUTH_SERVICE_ADDRESS в раздел [general]
+                                // Добавляем параметр DOWNLOAD_DIR в раздел [general]
                                 if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
                                     ini.get("general").put("DOWNLOAD_DIR", downloadDir);
-                                }
-                                // Добавляем параметр AUTH_SERVICE_ADDRESS только для выбранных элементов, у которых в начале названия нет слов fix, test, pre_test
-                                String configName = configFile.getName();
-                                if (!StringUtil.isEmptyOrSpaces(authServiceAddress) && !configName.startsWith("fix") && !configName.startsWith("test") && !configName.startsWith("pre_test")) {
-                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", authServiceAddress);
                                 }
 
                                 if (highlightActionEnabled) {
                                     ini.get("general").put("HIGHLIGHT_ACTION", "True");
                                 }
+                                if (authServiceActionEnabled) {
+                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
+                                }
+
 
                                 // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
                                 if (testfilesActionEnabled) {
@@ -150,6 +149,7 @@ public class CreateConfigAction extends AnAction {
                                 }
 
                                 // Показ всплывающего уведомления
+                                String configName = configFile.getName();
                                 String notificationMessage = "Установлен config: " + configName;
                                 Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
                                 Notifications.Bus.notify(notification);
@@ -185,12 +185,11 @@ public class CreateConfigAction extends AnAction {
                 JBTextField downloadDirTextField = new JBTextField(downloadDir);
                 downloadDirTextField.setPreferredSize(new Dimension(400, 30));
 
-                JLabel authServiceAddressLabel = new JBLabel("AUTH_SERVICE_ADDRESS");
-                JBTextField authServiceAddressTextField = new JBTextField(authServiceAddress);
-                authServiceAddressTextField.setPreferredSize(new Dimension(400, 30));
-
                 JCheckBox highlightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
                 highlightActionCheckbox.setSelected(highlightActionEnabled);
+
+                JCheckBox authServiceActionCheckbox = new JCheckBox("AUTH_SERVICE_ADDRESS");
+                authServiceActionCheckbox.setSelected(authServiceActionEnabled);
 
                 JCheckBox testfilesActionCheckbox = new JCheckBox("TEST_FILES");
                 testfilesActionCheckbox.setSelected(testfilesActionEnabled);
@@ -201,11 +200,9 @@ public class CreateConfigAction extends AnAction {
                 constraints.gridy++;
                 panel.add(downloadDirTextField, constraints);
                 constraints.gridy++;
-                panel.add(authServiceAddressLabel, constraints);
-                constraints.gridy++;
-                panel.add(authServiceAddressTextField, constraints);
-                constraints.gridy++;
                 panel.add(highlightActionCheckbox, constraints);
+                constraints.gridy++;
+                panel.add(authServiceActionCheckbox, constraints);
                 constraints.gridy++;
                 panel.add(testfilesActionCheckbox, constraints);
 
@@ -214,14 +211,14 @@ public class CreateConfigAction extends AnAction {
 
                 if (option == JOptionPane.OK_OPTION) {
                     downloadDir = downloadDirTextField.getText();
-                    authServiceAddress = authServiceAddressTextField.getText();
                     highlightActionEnabled = highlightActionCheckbox.isSelected();
+                    authServiceActionEnabled = authServiceActionCheckbox.isSelected();
                     testfilesActionEnabled = testfilesActionCheckbox.isSelected();
 
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
-                    preferences.put(PREF_AUTH_SERVICE_ADDRESS, authServiceAddress);
                     preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highlightActionEnabled);
+                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
                     preferences.putBoolean(PREF_TEST_FILES_ACTION, testfilesActionEnabled);
 
                 }
@@ -249,27 +246,19 @@ public class CreateConfigAction extends AnAction {
 
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
-        authServiceAddress = preferences.get(PREF_AUTH_SERVICE_ADDRESS, "");
         highlightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
+        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
         testfilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
 
         e.getPresentation().setEnabledAndVisible(true);
     }
 
-    // Добавляем геттеры и сеттеры для downloadDir и authServiceAddress
+    // Добавляем геттеры и сеттеры для downloadDir
     public String getDownloadDir() {
         return downloadDir;
     }
 
     public void setDownloadDir(String downloadDir) {
         this.downloadDir = downloadDir;
-    }
-
-    public String getAuthServiceAddress() {
-        return authServiceAddress;
-    }
-
-    public void setAuthServiceAddress(String authServiceAddress) {
-        this.authServiceAddress = authServiceAddress;
     }
 }
