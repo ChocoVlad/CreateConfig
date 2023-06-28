@@ -323,55 +323,59 @@ public class CreateConfigAction extends AnAction {
         Application application = ApplicationManager.getApplication();
         application.runWriteAction(() -> {
             try {
-                VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                VirtualFile existsConfigFile = currentFile.getParent().findChild("config.ini");
 
-                File iniFile = new File(destinationFile.getPath());
-                iniFile.createNewFile();
+                if (existsConfigFile != null) {
+                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
 
-                Wini ini = new Wini();
-                ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
-                ini.getConfig().setLowerCaseOption(false);
+                    File iniFile = new File(destinationFile.getPath());
+                    iniFile.createNewFile();
 
-                ini.load(iniFile);
+                    Wini ini = new Wini();
+                    ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+                    ini.getConfig().setLowerCaseOption(false);
 
-                if (!ini.containsKey("general")) {
-                    ini.add("general");
-                }
+                    ini.load(iniFile);
 
-                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
-                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
-                }
-
-                if (highLightActionEnabled) {
-                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
-                }
-                if (headlessActionEnabled) {
-                    ini.get("general").put("HEADLESS_MODE", "True");
-                }
-                if (authServiceActionEnabled) {
-                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
-                }
-
-                if (testFilesActionEnabled) {
-                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                        if (!ini.containsKey("custom")) {
-                            ini.add("custom");
-                        }
-                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                    if (!ini.containsKey("general")) {
+                        ini.add("general");
                     }
+
+                    if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
+                        ini.get("general").put("DOWNLOAD_DIR", downloadDir);
+                    }
+
+                    if (highLightActionEnabled) {
+                        ini.get("general").put("HIGHLIGHT_ACTION", "True");
+                    }
+                    if (headlessActionEnabled) {
+                        ini.get("general").put("HEADLESS_MODE", "True");
+                    }
+                    if (authServiceActionEnabled) {
+                        ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
+                    }
+
+                    if (testFilesActionEnabled) {
+                        VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                        if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                            if (!ini.containsKey("custom")) {
+                                ini.add("custom");
+                            }
+                            ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                        }
+                    }
+
+                    ini.store(iniFile);
+
+                    if (destinationFile != null) {
+                        destinationFile.refresh(false, true);
+                    }
+
+                    String configName = configFiles[0].getName();
+                    String notificationMessage = "Установлен config: " + configName;
+                    Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                    Notifications.Bus.notify(notification);
                 }
-
-                ini.store(iniFile);
-
-                if (destinationFile != null) {
-                    destinationFile.refresh(false, true);
-                }
-
-                String configName = configFiles[0].getName();
-                String notificationMessage = "Установлен config: " + configName;
-                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
-                Notifications.Bus.notify(notification);
             } catch (IOException ex) {
                 ex.printStackTrace();
                 Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
