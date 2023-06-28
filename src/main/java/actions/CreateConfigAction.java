@@ -50,6 +50,26 @@ public class CreateConfigAction extends AnAction {
     private boolean authServiceActionEnabled;
     private boolean testFilesActionEnabled;
 
+    private String isDownloadDir() {
+        return downloadDir;
+    }
+
+    private boolean isHighLightActionEnabled() {
+        return highLightActionEnabled;
+    }
+
+    private boolean isHeadlessActionEnabled() {
+        return headlessActionEnabled;
+    }
+
+    private boolean isAuthServiceActionEnabled() {
+        return authServiceActionEnabled;
+    }
+
+    private boolean isTestFilesActionEnabled() {
+        return testFilesActionEnabled;
+    }
+
     @Override
     public void actionPerformed(AnActionEvent e) {
         Project project = e.getProject();
@@ -124,12 +144,14 @@ public class CreateConfigAction extends AnAction {
                                 }
 
                                 if (testFilesActionEnabled) {
-                                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                        if (!ini.containsKey("custom")) {
-                                            ini.add("custom");
+                                    if (!ini.get("custom").containsKey("TEST_FILES")) {
+                                        VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                                        if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                                            if (!ini.containsKey("custom")) {
+                                                ini.add("custom");
+                                            }
+                                            ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
                                         }
-                                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
                                     }
                                 }
 
@@ -235,6 +257,8 @@ public class CreateConfigAction extends AnAction {
                     preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
                     preferences.putBoolean(PREF_TEST_FILES_ACTION, testFilesActionEnabled);
 
+                    saveConfigParameters(project);
+
                 }
             }
         });
@@ -267,11 +291,93 @@ public class CreateConfigAction extends AnAction {
         e.getPresentation().setEnabledAndVisible(true);
     }
 
-    public String getDownloadDir() {
-        return downloadDir;
-    }
+    private void saveConfigParameters(Project project) {
+        // Получение пути к файлу config.ini
+        VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
+        if (selectedFiles.length == 0) {
+            return;
+        }
+        VirtualFile currentFile = selectedFiles[0];
 
-    public void setDownloadDir(String downloadDir) {
-        this.downloadDir = downloadDir;
+        VirtualFile parentDirectory = currentFile.getParent();
+        if (parentDirectory == null) {
+            return;
+        }
+
+        VirtualFile configsDirectory = parentDirectory.findChild("config");
+        if (configsDirectory == null || !configsDirectory.isDirectory()) {
+            return;
+        }
+
+        VirtualFile[] configFiles = configsDirectory.getChildren();
+        if (configFiles.length == 0) {
+            return;
+        }
+
+        // Получение значений параметров
+        String downloadDir = isDownloadDir();
+        boolean highLightActionEnabled = isHighLightActionEnabled();
+        boolean headlessActionEnabled = isHeadlessActionEnabled();
+        boolean authServiceActionEnabled = isAuthServiceActionEnabled();
+        boolean testFilesActionEnabled = isTestFilesActionEnabled();
+
+        Application application = ApplicationManager.getApplication();
+        application.runWriteAction(() -> {
+            try {
+                VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+
+                File iniFile = new File(destinationFile.getPath());
+                iniFile.createNewFile();
+
+                Wini ini = new Wini();
+                ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+                ini.getConfig().setLowerCaseOption(false);
+
+                ini.load(iniFile);
+
+                if (!ini.containsKey("general")) {
+                    ini.add("general");
+                }
+
+                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
+                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
+                }
+
+                if (highLightActionEnabled) {
+                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
+                }
+                if (headlessActionEnabled) {
+                    ini.get("general").put("HEADLESS_MODE", "True");
+                }
+                if (authServiceActionEnabled) {
+                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
+                }
+
+                if (testFilesActionEnabled) {
+                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                        if (!ini.containsKey("custom")) {
+                            ini.add("custom");
+                        }
+                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                    }
+                }
+
+                ini.store(iniFile);
+
+                if (destinationFile != null) {
+                    destinationFile.refresh(false, true);
+                }
+
+                String configName = configFiles[0].getName();
+                String notificationMessage = "Установлен config: " + configName;
+                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                Notifications.Bus.notify(notification);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
+                Notifications.Bus.notify(notification);
+            }
+        });
     }
 }
