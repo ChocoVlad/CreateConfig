@@ -4,6 +4,7 @@
 
 package actions;
 
+
 import com.intellij.icons.AllIcons;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -22,6 +23,7 @@ import com.intellij.ui.components.JBTextField;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -32,34 +34,29 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.prefs.Preferences;
+import java.util.prefs.BackingStoreException;
 
 // Определение класса CreateConfigAction
 public class CreateConfigAction extends AnAction {
 
-    // Константы для ключей настроек
-    private static final String PREF_DOWNLOAD_DIR = "downloadDir";
-    private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
-    private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
-    private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
+    // Поля для хранения введенных параметров
+    private List<String> parameterNames = new ArrayList<>();
+    private List<String> parameterValues = new ArrayList<>();
+    private List<String> sectionNames = new ArrayList<>();
 
-    // Поля для хранения настроек
-    private String downloadDir;
-    private boolean highlightActionEnabled;
-    private boolean authServiceActionEnabled;
-    private boolean testfilesActionEnabled;
+    private DefaultTableModel parameterTableModel;
+    private static final String PREFERENCES_NODE = "com.example.config.plugin";
+    private Preferences preferences = Preferences.userRoot().node(PREFERENCES_NODE);
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        // Получение проекта из AnActionEvent
         Project project = e.getProject();
         if (project == null) {
             return;
         }
 
-        // Сохранение всех открытых документов
         FileDocumentManager.getInstance().saveAllDocuments();
 
-        // Получение текущего открытого файла в превью
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
@@ -81,7 +78,6 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
-        // Создание попап-меню
         JPopupMenu popupMenu = new JPopupMenu();
         List<Component> menuComponents = new ArrayList<>();
 
@@ -97,7 +93,6 @@ public class CreateConfigAction extends AnAction {
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
-                                // Добавление параметров в config.ini
                                 File iniFile = new File(destinationFile.getPath());
                                 iniFile.createNewFile();
 
@@ -105,159 +100,219 @@ public class CreateConfigAction extends AnAction {
                                 ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                                 ini.getConfig().setLowerCaseOption(false);
 
-                                // Загружаем ini-файл
                                 ini.load(iniFile);
 
-                                // Создаем раздел [general], если он не существует
-                                if (!ini.containsKey("general")) {
-                                    ini.add("general");
-                                }
+                                for (int i = 0; i < parameterNames.size(); i++) {
+                                    String parameterName = parameterNames.get(i);
+                                    String parameterValue = parameterValues.get(i);
+                                    String sectionName = sectionNames.get(i);
 
-                                // Добавляем параметр DOWNLOAD_DIR в раздел [general]
-                                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
-                                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
-                                }
-
-                                if (highlightActionEnabled) {
-                                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
-                                }
-                                if (authServiceActionEnabled) {
-                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
-                                }
-
-
-                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
-                                if (testfilesActionEnabled) {
-                                    VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                                    if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                        // Создаем раздел [custom], если он не существует
-                                        if (!ini.containsKey("custom")) {
-                                            ini.add("custom");
-                                        }
-                                        //Добавляем TEST_FILES с путем до файла test-files в config.ini
-                                        ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                                    if (!ini.containsKey(sectionName)) {
+                                        ini.add(sectionName);
                                     }
+
+                                    ini.put(sectionName, parameterName, parameterValue);
                                 }
 
-                                // Сохраняем ini-файл
-                                ini.store(iniFile);
-
-                                // Обновляем файл config.ini в IDE
-                                if (destinationFile != null) {
-                                    destinationFile.refresh(false, true); // Обновляем файл
-                                }
-
-                                // Показ всплывающего уведомления
-                                String configName = configFile.getName();
-                                String notificationMessage = "Установлен config: " + configName;
-                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
-                                Notifications.Bus.notify(notification);
+                                ini.store();
+                                Notifications.Bus.notify(new Notification("Config Plugin", "Обновление конфигурации", "Конфигурационный файл был обновлен", NotificationType.INFORMATION));
                             } catch (IOException ex) {
                                 ex.printStackTrace();
-                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
-                                Notifications.Bus.notify(notification);
+                                Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при обновлении конфигурационного файла", NotificationType.ERROR));
                             }
                         });
                     }
                 });
+                popupMenu.add(menuItem);
                 menuComponents.add(menuItem);
             }
         }
 
-        menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
+        if (popupMenu.getComponentCount() > 0) {
+            JButton settingsButton = new JButton("Настройки");
+            settingsButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    showSettingsDialog(project);
+                }
+            });
+            popupMenu.add(settingsButton);
+            menuComponents.add(settingsButton);
+        }
 
-        // Создание кнопки "Настройки" с иконкой
-        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
-        settingsItem.setToolTipText("Открыть настройки");
-        settingsItem.addActionListener(new ActionListener() {
+        Component[] components = menuComponents.toArray(new Component[0]);
+
+        Point location = e.getInputEvent().getComponent().getLocationOnScreen();
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+        popupMenu.show(e.getInputEvent().getComponent(), location.x, location.y + 20);
+
+        SwingUtilities.invokeLater(() -> {
+            for (Component component : components) {
+                if (component instanceof JButton) {
+                    JButton button = (JButton) component;
+                    button.setRequestFocusEnabled(false);
+                    button.setFocusable(false);
+                    button.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+                    button.setBackground(new JBLabel().getBackground());
+                }
+            }
+        });
+    }
+
+    private void showSettingsDialog(Project project) {
+        // Создание диалогового окна
+        JDialog dialog = new JDialog();
+        dialog.setTitle("Настройки");
+
+        // Создание панелей и компонентов для диалогового окна
+        JPanel mainPanel = new JPanel();
+        JPanel tablePanel = new JPanel();
+        JPanel buttonPanel = new JPanel();
+
+        parameterTableModel = new DefaultTableModel();
+        parameterTableModel.addColumn("Секция");
+        parameterTableModel.addColumn("Параметр");
+        parameterTableModel.addColumn("Значение");
+
+        JTable parameterTable = new JTable(parameterTableModel);
+        JScrollPane tableScrollPane = new JScrollPane(parameterTable);
+
+        JButton addButton = new JButton("Добавить");
+        addButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Открытие всплывающего окна для настроек
-                JPanel panel = new JPanel(new GridBagLayout());
-                GridBagConstraints constraints = new GridBagConstraints();
-                constraints.gridx = 0;
-                constraints.gridy = 0;
-                constraints.anchor = GridBagConstraints.WEST;
+                parameterTableModel.addRow(new Object[]{"", "", ""});
+            }
+        });
 
-                // Создание компонентов всплывающего окна
-                JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
-                JBTextField downloadDirTextField = new JBTextField(downloadDir);
-                downloadDirTextField.setPreferredSize(new Dimension(400, 30));
-
-                JCheckBox highlightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
-                highlightActionCheckbox.setSelected(highlightActionEnabled);
-
-                JCheckBox authServiceActionCheckbox = new JCheckBox("AUTH_SERVICE_ADDRESS");
-                authServiceActionCheckbox.setSelected(authServiceActionEnabled);
-
-                JCheckBox testfilesActionCheckbox = new JCheckBox("TEST_FILES");
-                testfilesActionCheckbox.setSelected(testfilesActionEnabled);
-
-
-                // Добавление компонентов в панель
-                panel.add(downloadDirLabel, constraints);
-                constraints.gridy++;
-                panel.add(downloadDirTextField, constraints);
-                constraints.gridy++;
-                panel.add(highlightActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(authServiceActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(testfilesActionCheckbox, constraints);
-
-                // Отображение всплывающего окна
-                int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
-
-                if (option == JOptionPane.OK_OPTION) {
-                    downloadDir = downloadDirTextField.getText();
-                    highlightActionEnabled = highlightActionCheckbox.isSelected();
-                    authServiceActionEnabled = authServiceActionCheckbox.isSelected();
-                    testfilesActionEnabled = testfilesActionCheckbox.isSelected();
-
-                    Preferences preferences = Preferences.userNodeForPackage(getClass());
-                    preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
-                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highlightActionEnabled);
-                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testfilesActionEnabled);
-
+        JButton removeButton = new JButton("Удалить");
+        removeButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int selectedRow = parameterTable.getSelectedRow();
+                if (selectedRow != -1) {
+                    parameterTableModel.removeRow(selectedRow);
                 }
             }
         });
 
-        // Добавление элементов в попап-меню
-        for (Component component : menuComponents) {
-            popupMenu.add(component);
+        JButton saveButton = new JButton("Сохранить");
+        saveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveParametersToPreferences();
+                dialog.dispose();
+            }
+        });
+
+        JButton cancelButton = new JButton("Отмена");
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialog.dispose();
+            }
+        });
+
+        // Установка менеджера компоновки для панелей
+        mainPanel.setLayout(new BorderLayout());
+        tablePanel.setLayout(new BorderLayout());
+        buttonPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+
+        // Добавление компонентов на панели
+        tablePanel.add(tableScrollPane, BorderLayout.CENTER);
+        buttonPanel.add(addButton);
+        buttonPanel.add(removeButton);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+
+        mainPanel.add(tablePanel, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        // Загрузка параметров из preferences
+        loadParametersFromPreferences();
+
+        // Установка параметров в таблицу
+        for (int i = 0; i < sectionNames.size(); i++) {
+            parameterTableModel.addRow(new Object[]{sectionNames.get(i), parameterNames.get(i), parameterValues.get(i)});
         }
-        popupMenu.addSeparator();
-        popupMenu.add(settingsItem);
 
-        // Отображение попап-меню
-        Component component = e.getInputEvent().getComponent();
-        if (component instanceof JComponent) {
-            JComponent jComponent = (JComponent) component;
-            popupMenu.show(jComponent, 0, jComponent.getHeight());
+        // Установка диалогового окна
+        dialog.setContentPane(mainPanel);
+        dialog.setSize(500, 300);
+        dialog.setLocationRelativeTo(null);
+        dialog.setModal(true);
+        dialog.setVisible(true);
+    }
+
+    private void saveParametersToPreferences() {
+        try {
+            preferences.clear();
+
+            for (int i = 0; i < parameterTableModel.getRowCount(); i++) {
+                String sectionName = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 0));
+                String parameterName = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 1));
+                String parameterValue = StringUtil.notNullize((String) parameterTableModel.getValueAt(i, 2));
+
+                preferences.put(sectionName + "." + parameterName, parameterValue);
+            }
+
+            preferences.flush();
+        } catch (BackingStoreException ex) {
+            ex.printStackTrace();
+            Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при сохранении параметров в настройки", NotificationType.ERROR));
         }
     }
 
-    @Override
-    public void update(AnActionEvent e) {
-        super.update(e);
+    private void loadParametersFromPreferences() {
+        parameterNames.clear();
+        parameterValues.clear();
+        sectionNames.clear();
 
-        Preferences preferences = Preferences.userNodeForPackage(getClass());
-        downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
-        highlightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
-        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
-        testfilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
+        try {
+            String[] keys = preferences.keys();
+            for (String key : keys) {
+                int dotIndex = key.indexOf('.');
+                if (dotIndex != -1) {
+                    String sectionName = key.substring(0, dotIndex);
+                    String parameterName = key.substring(dotIndex + 1);
+                    String parameterValue = preferences.get(key, "");
 
-        e.getPresentation().setEnabledAndVisible(true);
-    }
+                    sectionNames.add(sectionName);
+                    parameterNames.add(parameterName);
+                    parameterValues.add(parameterValue);
+                }
+            }
 
-    // Добавляем геттеры и сеттеры для downloadDir
-    public String getDownloadDir() {
-        return downloadDir;
-    }
+            // Сортировка параметров по секциям и именам параметров
+            Comparator<String> sectionComparator = (s1, s2) -> {
+                if (s1.isEmpty() && s2.isEmpty()) {
+                    return 0;
+                } else if (s1.isEmpty()) {
+                    return 1;
+                } else if (s2.isEmpty()) {
+                    return -1;
+                } else {
+                    return s1.compareToIgnoreCase(s2);
+                }
+            };
 
-    public void setDownloadDir(String downloadDir) {
-        this.downloadDir = downloadDir;
+            Comparator<String> parameterComparator = (p1, p2) -> {
+                if (p1.isEmpty() && p2.isEmpty()) {
+                    return 0;
+                } else if (p1.isEmpty()) {
+                    return 1;
+                } else if (p2.isEmpty()) {
+                    return -1;
+                } else {
+                    return p1.compareToIgnoreCase(p2);
+                }
+            };
+
+            sectionNames.sort(sectionComparator);
+            parameterNames.sort(parameterComparator);
+        } catch (BackingStoreException ex) {
+            ex.printStackTrace();
+            Notifications.Bus.notify(new Notification("Config Plugin", "Ошибка", "Произошла ошибка при загрузке параметров из настроек", NotificationType.ERROR));
+        }
     }
 }
