@@ -21,6 +21,7 @@ import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
 import org.ini4j.Wini;
 
+import java.nio.file.Paths;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -38,15 +39,17 @@ public class CreateConfigAction extends AnAction {
 
     // Константы для ключей настроек
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
-    private static final String PREF_HIGHLIGHT_ACTION = "highlightAction";
+    private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
+    private static final String PREF_API_DATA_ACTION = "apiDataAction";
     private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
-    private static final String PREF_TEST_FILES_ACTION = "testfilesAction";
+    private static final String PREF_TEST_FILES_ACTION = "testFilesAction";
 
     // Поля для хранения настроек
     private String downloadDir;
-    private boolean highlightActionEnabled;
+    private boolean highLightActionEnabled;
+    private boolean apiDataActionEnabled;
     private boolean authServiceActionEnabled;
-    private boolean testfilesActionEnabled;
+    private boolean testFilesActionEnabled;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -87,7 +90,12 @@ public class CreateConfigAction extends AnAction {
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
-                JMenuItem menuItem = new JMenuItem(configFile.getName(), AllIcons.FileTypes.Config);
+                String fileName = Paths.get(configFile.getName()).getFileName().toString();
+                int extensionIndex = fileName.lastIndexOf('.');
+                if (extensionIndex > 0) {
+                    fileName = fileName.substring(0, extensionIndex);
+                }
+                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.FileTypes.Config);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
@@ -118,7 +126,7 @@ public class CreateConfigAction extends AnAction {
                                     ini.get("general").put("DOWNLOAD_DIR", downloadDir);
                                 }
 
-                                if (highlightActionEnabled) {
+                                if (highLightActionEnabled) {
                                     ini.get("general").put("HIGHLIGHT_ACTION", "True");
                                 }
                                 if (authServiceActionEnabled) {
@@ -127,7 +135,7 @@ public class CreateConfigAction extends AnAction {
 
 
                                 // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
-                                if (testfilesActionEnabled) {
+                                if (testFilesActionEnabled) {
                                     VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
                                     if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
                                         // Создаем раздел [custom], если он не существует
@@ -184,14 +192,17 @@ public class CreateConfigAction extends AnAction {
                 JBTextField downloadDirTextField = new JBTextField(downloadDir);
                 downloadDirTextField.setPreferredSize(new Dimension(400, 30));
 
-                JCheckBox highlightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
-                highlightActionCheckbox.setSelected(highlightActionEnabled);
+                JCheckBox highLightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
+                highLightActionCheckbox.setSelected(highLightActionEnabled);
+                
+                JCheckBox apiDataActionCheckbox = new JCheckBox("API_DATA");
+                apiDataActionCheckbox.setSelected(apiDataActionEnabled);
 
                 JCheckBox authServiceActionCheckbox = new JCheckBox("AUTH_SERVICE_ADDRESS");
                 authServiceActionCheckbox.setSelected(authServiceActionEnabled);
 
-                JCheckBox testfilesActionCheckbox = new JCheckBox("TEST_FILES");
-                testfilesActionCheckbox.setSelected(testfilesActionEnabled);
+                JCheckBox testFilesActionCheckbox = new JCheckBox("TEST_FILES");
+                testFilesActionCheckbox.setSelected(testFilesActionEnabled);
 
 
                 // Добавление компонентов в панель
@@ -199,26 +210,30 @@ public class CreateConfigAction extends AnAction {
                 constraints.gridy++;
                 panel.add(downloadDirTextField, constraints);
                 constraints.gridy++;
-                panel.add(highlightActionCheckbox, constraints);
+                panel.add(highLightActionCheckbox, constraints);
                 constraints.gridy++;
                 panel.add(authServiceActionCheckbox, constraints);
                 constraints.gridy++;
-                panel.add(testfilesActionCheckbox, constraints);
+                panel.add(testFilesActionCheckbox, constraints);
+                constraints.gridy++;
+                panel.add(apiDataActionCheckbox, constraints);
 
                 // Отображение всплывающего окна
                 int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
 
                 if (option == JOptionPane.OK_OPTION) {
                     downloadDir = downloadDirTextField.getText();
-                    highlightActionEnabled = highlightActionCheckbox.isSelected();
+                    highLightActionEnabled = highLightActionCheckbox.isSelected();
+                    apiDataActionEnabled = apiDataActionCheckbox.isSelected();
                     authServiceActionEnabled = authServiceActionCheckbox.isSelected();
-                    testfilesActionEnabled = testfilesActionCheckbox.isSelected();
+                    testFilesActionEnabled = testFilesActionCheckbox.isSelected();
 
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
-                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highlightActionEnabled);
+                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
+                    preferences.putBoolean(PREF_API_DATA_ACTION, apiDataActionEnabled);
                     preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testfilesActionEnabled);
+                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testFilesActionEnabled);
 
                 }
             }
@@ -245,9 +260,10 @@ public class CreateConfigAction extends AnAction {
 
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
-        highlightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
+        highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
+        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA_ACTION, false);
         authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
-        testfilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
+        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
 
         e.getPresentation().setEnabledAndVisible(true);
     }
