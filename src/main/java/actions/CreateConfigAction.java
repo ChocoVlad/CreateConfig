@@ -16,12 +16,12 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
 import org.ini4j.Wini;
 
-import java.nio.file.Paths;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -34,35 +34,31 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.prefs.Preferences;
 
-// Определение класса CreateConfigAction
 public class CreateConfigAction extends AnAction {
 
-    // Константы для ключей настроек
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
     private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
+    private static final String PREF_HEADLESS_ACTION = "headlessAction";
     private static final String PREF_API_DATA_ACTION = "apiDataAction";
     private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
     private static final String PREF_TEST_FILES_ACTION = "testFilesAction";
 
-    // Поля для хранения настроек
     private String downloadDir;
     private boolean highLightActionEnabled;
+    private boolean headlessActionEnabled;
     private boolean apiDataActionEnabled;
     private boolean authServiceActionEnabled;
     private boolean testFilesActionEnabled;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        // Получение проекта из AnActionEvent
         Project project = e.getProject();
         if (project == null) {
             return;
         }
 
-        // Сохранение всех открытых документов
         FileDocumentManager.getInstance().saveAllDocuments();
 
-        // Получение текущего открытого файла в превью
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
@@ -84,17 +80,12 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
-        // Создание попап-меню
         JPopupMenu popupMenu = new JPopupMenu();
         List<Component> menuComponents = new ArrayList<>();
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
-                String fileName = Paths.get(configFile.getName()).getFileName().toString();
-                int extensionIndex = fileName.lastIndexOf('.');
-                if (extensionIndex > 0) {
-                    fileName = fileName.substring(0, extensionIndex);
-                }
+                String fileName = configFile.getNameWithoutExtension();
                 JMenuItem menuItem = new JMenuItem(fileName, AllIcons.FileTypes.Config);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
@@ -105,7 +96,6 @@ public class CreateConfigAction extends AnAction {
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
-                                // Добавление параметров в config.ini
                                 File iniFile = new File(destinationFile.getPath());
                                 iniFile.createNewFile();
 
@@ -113,15 +103,12 @@ public class CreateConfigAction extends AnAction {
                                 ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                                 ini.getConfig().setLowerCaseOption(false);
 
-                                // Загружаем ini-файл
                                 ini.load(iniFile);
 
-                                // Создаем раздел [general], если он не существует
                                 if (!ini.containsKey("general")) {
                                     ini.add("general");
                                 }
 
-                                // Добавляем параметр DOWNLOAD_DIR в раздел [general]
                                 if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
                                     ini.get("general").put("DOWNLOAD_DIR", downloadDir);
                                 }
@@ -129,33 +116,40 @@ public class CreateConfigAction extends AnAction {
                                 if (highLightActionEnabled) {
                                     ini.get("general").put("HIGHLIGHT_ACTION", "True");
                                 }
+                                if (headlessActionEnabled) {
+                                    ini.get("general").put("HEADLESS_MODE", "True");
+                                }
                                 if (authServiceActionEnabled) {
                                     ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
                                 }
 
-
-                                // Проверяем наличие папки "test-files" в родительском каталоге файла из превью
                                 if (testFilesActionEnabled) {
                                     VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
                                     if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                                        // Создаем раздел [custom], если он не существует
                                         if (!ini.containsKey("custom")) {
                                             ini.add("custom");
                                         }
-                                        //Добавляем TEST_FILES с путем до файла test-files в config.ini
                                         ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
                                     }
                                 }
 
-                                // Сохраняем ini-файл
-                                ini.store(iniFile);
-
-                                // Обновляем файл config.ini в IDE
-                                if (destinationFile != null) {
-                                    destinationFile.refresh(false, true); // Обновляем файл
+                                if (apiDataActionEnabled) {
+                                    VirtualFile previewDirectory = parentDirectory.findChild("data_asserts");
+                                    if (previewDirectory != null && previewDirectory.isDirectory()) {
+                                        VirtualFile dataFile = previewDirectory.findChild(fileName + ".py");
+                                        if (dataFile != null) {
+                                            VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                            destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                        }
+                                    }
                                 }
 
-                                // Показ всплывающего уведомления
+                                ini.store(iniFile);
+
+                                if (destinationFile != null) {
+                                    destinationFile.refresh(false, true);
+                                }
+
                                 String configName = configFile.getName();
                                 String notificationMessage = "Установлен config: " + configName;
                                 Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
@@ -174,27 +168,27 @@ public class CreateConfigAction extends AnAction {
 
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
-        // Создание кнопки "Настройки" с иконкой
         JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
         settingsItem.setToolTipText("Открыть настройки");
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Открытие всплывающего окна для настроек
                 JPanel panel = new JPanel(new GridBagLayout());
                 GridBagConstraints constraints = new GridBagConstraints();
                 constraints.gridx = 0;
                 constraints.gridy = 0;
                 constraints.anchor = GridBagConstraints.WEST;
 
-                // Создание компонентов всплывающего окна
                 JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
                 JBTextField downloadDirTextField = new JBTextField(downloadDir);
                 downloadDirTextField.setPreferredSize(new Dimension(400, 30));
 
                 JCheckBox highLightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
                 highLightActionCheckbox.setSelected(highLightActionEnabled);
-                
+
+                JCheckBox headlessActionCheckbox = new JCheckBox("HEADLESS_MODE");
+                headlessActionCheckbox.setSelected(headlessActionEnabled);
+
                 JCheckBox apiDataActionCheckbox = new JCheckBox("API_DATA");
                 apiDataActionCheckbox.setSelected(apiDataActionEnabled);
 
@@ -204,13 +198,13 @@ public class CreateConfigAction extends AnAction {
                 JCheckBox testFilesActionCheckbox = new JCheckBox("TEST_FILES");
                 testFilesActionCheckbox.setSelected(testFilesActionEnabled);
 
-
-                // Добавление компонентов в панель
                 panel.add(downloadDirLabel, constraints);
                 constraints.gridy++;
                 panel.add(downloadDirTextField, constraints);
                 constraints.gridy++;
                 panel.add(highLightActionCheckbox, constraints);
+                constraints.gridy++;
+                panel.add(headlessActionCheckbox, constraints);
                 constraints.gridy++;
                 panel.add(authServiceActionCheckbox, constraints);
                 constraints.gridy++;
@@ -218,12 +212,12 @@ public class CreateConfigAction extends AnAction {
                 constraints.gridy++;
                 panel.add(apiDataActionCheckbox, constraints);
 
-                // Отображение всплывающего окна
                 int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
 
                 if (option == JOptionPane.OK_OPTION) {
                     downloadDir = downloadDirTextField.getText();
                     highLightActionEnabled = highLightActionCheckbox.isSelected();
+                    headlessActionEnabled = headlessActionCheckbox.isSelected();
                     apiDataActionEnabled = apiDataActionCheckbox.isSelected();
                     authServiceActionEnabled = authServiceActionCheckbox.isSelected();
                     testFilesActionEnabled = testFilesActionCheckbox.isSelected();
@@ -231,6 +225,7 @@ public class CreateConfigAction extends AnAction {
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
                     preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
+                    preferences.putBoolean(PREF_HEADLESS_ACTION, headlessActionEnabled);
                     preferences.putBoolean(PREF_API_DATA_ACTION, apiDataActionEnabled);
                     preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
                     preferences.putBoolean(PREF_TEST_FILES_ACTION, testFilesActionEnabled);
@@ -239,14 +234,12 @@ public class CreateConfigAction extends AnAction {
             }
         });
 
-        // Добавление элементов в попап-меню
         for (Component component : menuComponents) {
             popupMenu.add(component);
         }
         popupMenu.addSeparator();
         popupMenu.add(settingsItem);
 
-        // Отображение попап-меню
         Component component = e.getInputEvent().getComponent();
         if (component instanceof JComponent) {
             JComponent jComponent = (JComponent) component;
@@ -261,6 +254,7 @@ public class CreateConfigAction extends AnAction {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
         highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
+        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_ACTION, false);
         apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA_ACTION, false);
         authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
         testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
@@ -268,7 +262,6 @@ public class CreateConfigAction extends AnAction {
         e.getPresentation().setEnabledAndVisible(true);
     }
 
-    // Добавляем геттеры и сеттеры для downloadDir
     public String getDownloadDir() {
         return downloadDir;
     }
