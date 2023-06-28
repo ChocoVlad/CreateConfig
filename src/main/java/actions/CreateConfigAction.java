@@ -173,12 +173,14 @@ public class CreateConfigAction extends AnAction {
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                // Создаем панель настроек
                 JPanel panel = new JPanel(new GridBagLayout());
                 GridBagConstraints constraints = new GridBagConstraints();
                 constraints.gridx = 0;
                 constraints.gridy = 0;
                 constraints.anchor = GridBagConstraints.WEST;
 
+                // Создаем компоненты для настроек
                 JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
                 JBTextField downloadDirTextField = new JBTextField(downloadDir);
                 downloadDirTextField.setPreferredSize(new Dimension(400, 30));
@@ -198,6 +200,7 @@ public class CreateConfigAction extends AnAction {
                 JCheckBox testFilesActionCheckbox = new JCheckBox("TEST_FILES");
                 testFilesActionCheckbox.setSelected(testFilesActionEnabled);
 
+                // Добавляем компоненты на панель
                 panel.add(downloadDirLabel, constraints);
                 constraints.gridy++;
                 panel.add(downloadDirTextField, constraints);
@@ -212,9 +215,11 @@ public class CreateConfigAction extends AnAction {
                 constraints.gridy++;
                 panel.add(apiDataActionCheckbox, constraints);
 
+                // Отображаем диалоговое окно с настройками
                 int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
 
                 if (option == JOptionPane.OK_OPTION) {
+                    // Сохраняем значения настроек
                     downloadDir = downloadDirTextField.getText();
                     highLightActionEnabled = highLightActionCheckbox.isSelected();
                     headlessActionEnabled = headlessActionCheckbox.isSelected();
