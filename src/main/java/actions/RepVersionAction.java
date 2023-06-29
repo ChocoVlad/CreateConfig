@@ -1,19 +1,20 @@
 package actions;
 
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.util.text.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.Component;
+import java.io.File;
 import java.io.IOException;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 
 public class RepVersionAction extends AnAction {
     @Override
@@ -21,14 +22,33 @@ public class RepVersionAction extends AnAction {
         Project project = e.getProject();
         if (project != null) {
             JPopupMenu popupMenu = new JPopupMenu();
-            for (String stand : new String[]{"prod", "fix", "fix-old", "test", "pre-test"}) {
-                JMenuItem menuItem = new JMenuItem(stand);
+            for (String stand : new String[]{"prod", "fix", "test", "pre-test"}) {
+                JMenuItem menuItem = new JMenuItem(stand, AllIcons.Actions.Annotate);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent actionEvent) {
-                        String command = "make checkout stand=" + StringUtil.escapeChar(stand, '\'');
-                        executeCommandInTerminal(project, command);
-                        executeCommandInTerminal(project, "make pull");
+                        ProgressManager.getInstance().run(new Task.Backgroundable(project, "Executing Command", true) {
+                            @Override
+                            public void run(@NotNull ProgressIndicator indicator) {
+                                String command = "make checkout stand=" + stand;
+                                String workingDirectory = "C:\\Users\\TensorUser\\install_environment";
+                                try {
+                                    ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/c", command);
+                                    processBuilder.directory(new File(workingDirectory));
+                                    Process process = processBuilder.start();
+                                    int exitCode = process.waitFor();
+                                    if (exitCode == 0) {
+                                        // Команда успешно выполнена
+                                        System.out.println("Команда успешно выполнена.");
+                                    } else {
+                                        // Команда завершилась с ошибкой
+                                        System.out.println("Команда завершилась с ошибкой. Код возврата: " + exitCode);
+                                    }
+                                } catch (IOException | InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
                     }
                 });
                 popupMenu.add(menuItem);
@@ -39,35 +59,5 @@ public class RepVersionAction extends AnAction {
                 popupMenu.show(jComponent, 0, jComponent.getHeight());
             }
         }
-    }
-
-    private void executeCommandInTerminal(Project project, String command) {
-        try {
-            Process process = Runtime.getRuntime().exec("cmd.exe /c " + command);
-            int exitCode = process.waitFor();
-
-            if (exitCode == 0) {
-                // Команда успешно выполнена
-                String output = readProcessOutput(process);
-                Messages.showMessageDialog(project, "Command executed successfully.\n\nOutput:\n" + output, "Terminal Command", Messages.getInformationIcon());
-            } else {
-                // Возникла ошибка при выполнении команды
-                String errorOutput = readProcessOutput(process);
-                Messages.showErrorDialog(project, "Command execution failed.\n\nError Output:\n" + errorOutput, "Terminal Command Error");
-            }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            Messages.showErrorDialog(project, "An error occurred while executing the command:\n" + e.getMessage(), "Terminal Command Error");
-        }
-    }
-
-    private String readProcessOutput(Process process) throws IOException {
-        StringBuilder output = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            output.append(line).append("\n");
-        }
-        return output.toString();
     }
 }
