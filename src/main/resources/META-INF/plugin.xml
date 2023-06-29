@@ -51,5 +51,8 @@
         <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.png">
             <add-to-group group-id="NavBarToolBar" anchor="first"></add-to-group>
         </action>
+        <action id="repversion" class="actions.RepVersionAction" text="Repository version" icon="icons/rep_version.png">
+            <add-to-group group-id="NavBarToolBar" anchor="first"></add-to-group>
+        </action>
     </actions>
 </idea-plugin>
