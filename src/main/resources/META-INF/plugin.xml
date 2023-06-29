@@ -7,9 +7,7 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
     <name>CreateConfig</name>
 
-    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor email="info@tensor-sbis.ru" url="https://www.tensor-sbis.ru/">ООО Компания "ТЕНЗОР"</vendor>
-
+    <vendor email="vlad-1-9-9-6@mail.ru">Kazarin Vladislav</vendor>
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
