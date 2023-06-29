@@ -20,16 +20,26 @@ import java.io.File;
 import java.io.IOException;
 
 public class RepVersionAction extends AnAction {
+    private boolean commandRunning = false;
+
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
+        if (commandRunning) {
+            Notification notification = new Notification("RepVersion", "Исполняется другая команда", "Пожалуйста, дождитесь завершения предыдущего checkout.", NotificationType.WARNING);
+            Notifications.Bus.notify(notification);
+            return;
+        }
+
         Project project = e.getProject();
         if (project != null) {
             JPopupMenu popupMenu = new JPopupMenu();
             for (String stand : new String[]{"prod", "fix", "fix-old", "test", "pre-test"}) {
-                JMenuItem menuItem = new JMenuItem(stand, AllIcons.Actions.Annotate);
+                JMenuItem menuItem = new JMenuItem(stand, AllIcons.Nodes.Servlet);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent actionEvent) {
+                        commandRunning = true;
+
                         ProgressManager.getInstance().run(new Task.Backgroundable(project, "Checkout на ветки по стенду " + stand, true) {
                             @Override
                             public void run(@NotNull ProgressIndicator indicator) {
@@ -66,6 +76,8 @@ public class RepVersionAction extends AnAction {
                                     notification.expire();
                                 } catch (IOException | InterruptedException e) {
                                     e.printStackTrace();
+                                } finally {
+                                    commandRunning = false;
                                 }
                             }
                         });
@@ -73,6 +85,19 @@ public class RepVersionAction extends AnAction {
                 });
                 popupMenu.add(menuItem);
             }
+
+            JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.Settings);
+            settingsItem.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent actionEvent) {
+                    // Действия при выборе кнопки "Настройки"
+                    // Например, открытие окна настроек
+                }
+            });
+
+            popupMenu.addSeparator();
+            popupMenu.add(settingsItem);
+
             Component component = e.getInputEvent().getComponent();
             if (component instanceof JComponent) {
                 JComponent jComponent = (JComponent) component;
