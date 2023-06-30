@@ -37,10 +37,10 @@ public class CreateConfigAction extends AnAction {
 
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
     private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
-    private static final String PREF_HEADLESS_ACTION = "headlessAction";
-    private static final String PREF_API_DATA_ACTION = "apiDataAction";
-    private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
-    private static final String PREF_TEST_FILES_ACTION = "testFilesAction";
+    private static final String PREF_HEADLESS_MODE = "headlessAction";
+    private static final String PREF_API_DATA = "apiDataAction";
+    private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAction";
+    private static final String PREF_TEST_FILES = "testFilesAction";
 
     private String downloadDir;
     private boolean highLightActionEnabled;
@@ -251,10 +251,10 @@ public class CreateConfigAction extends AnAction {
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
                     preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
-                    preferences.putBoolean(PREF_HEADLESS_ACTION, headlessActionEnabled);
-                    preferences.putBoolean(PREF_API_DATA_ACTION, apiDataActionEnabled);
-                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testFilesActionEnabled);
+                    preferences.putBoolean(PREF_HEADLESS_MODE, headlessActionEnabled);
+                    preferences.putBoolean(PREF_API_DATA, apiDataActionEnabled);
+                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS, authServiceActionEnabled);
+                    preferences.putBoolean(PREF_TEST_FILES, testFilesActionEnabled);
 
                     saveConfigParameters(project);
 
@@ -282,10 +282,10 @@ public class CreateConfigAction extends AnAction {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
         highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
-        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_ACTION, false);
-        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA_ACTION, false);
-        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
-        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
+        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_MODE, false);
+        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA, false);
+        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS, false);
+        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES, false);
 
         e.getPresentation().setEnabledAndVisible(true);
     }
