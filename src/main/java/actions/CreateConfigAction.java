@@ -36,6 +36,9 @@ import java.util.prefs.Preferences;
 public class CreateConfigAction extends AnAction {
 
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
+    private static final String PREF_DEVICE_NAME = "deviceName";
+    private static final String PREF_SERVER_ADDRESS = "serverAddress";
+    private static final String PREF_APP = "app";
     private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
     private static final String PREF_HEADLESS_MODE = "headlessAction";
     private static final String PREF_API_DATA = "apiDataAction";
@@ -43,31 +46,23 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_TEST_FILES = "testFilesAction";
 
     private String downloadDir;
+    private String deviceName;
+    private String serverAddress;
+    private String app;
     private boolean highLightActionEnabled;
     private boolean headlessActionEnabled;
     private boolean apiDataActionEnabled;
     private boolean authServiceActionEnabled;
     private boolean testFilesActionEnabled;
 
-    private String isDownloadDir() {
-        return downloadDir;
-    }
-
-    private boolean isHighLightActionEnabled() {
-        return highLightActionEnabled;
-    }
-
-    private boolean isHeadlessActionEnabled() {
-        return headlessActionEnabled;
-    }
-
-    private boolean isAuthServiceActionEnabled() {
-        return authServiceActionEnabled;
-    }
-
-    private boolean isTestFilesActionEnabled() {
-        return testFilesActionEnabled;
-    }
+    private String isDownloadDir() { return downloadDir; }
+    private String isDeviceName() { return deviceName; }
+    private String isServerAddress() { return serverAddress; }
+    private String isApp() { return app; }
+    private boolean isHighLightActionEnabled() { return highLightActionEnabled; }
+    private boolean isHeadlessActionEnabled() { return headlessActionEnabled; }
+    private boolean isAuthServiceActionEnabled() { return authServiceActionEnabled; }
+    private boolean isTestFilesActionEnabled() { return testFilesActionEnabled; }
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -156,6 +151,18 @@ public class CreateConfigAction extends AnAction {
                 JBTextField downloadDirTextField = new JBTextField(downloadDir);
                 downloadDirTextField.setPreferredSize(new Dimension(400, 30));
 
+                JLabel deviceNameLabel = new JBLabel("DEVICE_NAME: ");
+                JBTextField deviceNameTextField = new JBTextField(deviceName);
+                deviceNameTextField.setPreferredSize(new Dimension(400, 30));
+
+                JLabel serverAddressLabel = new JBLabel("SERVER_ADDRESS: ");
+                JBTextField serverAddressTextField = new JBTextField(serverAddress);
+                serverAddressTextField.setPreferredSize(new Dimension(400, 30));
+
+                JLabel appLabel = new JBLabel("APP: ");
+                JBTextField appTextField = new JBTextField(app);
+                appTextField.setPreferredSize(new Dimension(400, 30));
+
                 JCheckBox highLightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
                 highLightActionCheckbox.setSelected(highLightActionEnabled);
 
@@ -176,6 +183,18 @@ public class CreateConfigAction extends AnAction {
                 constraints.gridy++;
                 panel.add(downloadDirTextField, constraints);
                 constraints.gridy++;
+                panel.add(deviceNameLabel, constraints);
+                constraints.gridy++;
+                panel.add(deviceNameTextField, constraints);
+                constraints.gridy++;
+                panel.add(serverAddressLabel, constraints);
+                constraints.gridy++;
+                panel.add(serverAddressTextField, constraints);
+                constraints.gridy++;
+                panel.add(appLabel, constraints);
+                constraints.gridy++;
+                panel.add(appTextField, constraints);
+                constraints.gridy++;
                 panel.add(highLightActionCheckbox, constraints);
                 constraints.gridy++;
                 panel.add(headlessActionCheckbox, constraints);
@@ -192,6 +211,9 @@ public class CreateConfigAction extends AnAction {
                 if (option == JOptionPane.OK_OPTION) {
                     // Сохраняем значения настроек
                     downloadDir = downloadDirTextField.getText();
+                    deviceName = deviceNameTextField.getText();
+                    serverAddress = serverAddressTextField.getText();
+                    app = appTextField.getText();
                     highLightActionEnabled = highLightActionCheckbox.isSelected();
                     headlessActionEnabled = headlessActionCheckbox.isSelected();
                     apiDataActionEnabled = apiDataActionCheckbox.isSelected();
@@ -200,6 +222,9 @@ public class CreateConfigAction extends AnAction {
 
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
+                    preferences.put(PREF_DEVICE_NAME, deviceName);
+                    preferences.put(PREF_SERVER_ADDRESS, serverAddress);
+                    preferences.put(PREF_APP, app);
                     preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
                     preferences.putBoolean(PREF_HEADLESS_MODE, headlessActionEnabled);
                     preferences.putBoolean(PREF_API_DATA, apiDataActionEnabled);
@@ -231,6 +256,9 @@ public class CreateConfigAction extends AnAction {
 
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
+        deviceName = preferences.get(PREF_DEVICE_NAME, "");
+        serverAddress = preferences.get(PREF_SERVER_ADDRESS, "");
+        app = preferences.get(PREF_APP, "");
         highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
         headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_MODE, false);
         apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA, false);
@@ -265,6 +293,9 @@ public class CreateConfigAction extends AnAction {
 
         // Получение значений параметров
         String downloadDir = isDownloadDir();
+        String deviceName = isDeviceName();
+        String serverAddress = isServerAddress();
+        String app = isApp();
         boolean highLightActionEnabled = isHighLightActionEnabled();
         boolean headlessActionEnabled = isHeadlessActionEnabled();
         boolean authServiceActionEnabled = isAuthServiceActionEnabled();
@@ -290,11 +321,18 @@ public class CreateConfigAction extends AnAction {
                     if (!ini.containsKey("general")) {
                         ini.add("general");
                     }
-
                     if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
                         ini.get("general").put("DOWNLOAD_DIR", downloadDir);
                     }
-
+                    if (!StringUtil.isEmptyOrSpaces(deviceName)) {
+                        ini.get("general").put("DEVICE_NAME", deviceName);
+                    }
+                    if (!StringUtil.isEmptyOrSpaces(serverAddress)) {
+                        ini.get("general").put("SERVER_ADDRESS", serverAddress);
+                    }
+                    if (!StringUtil.isEmptyOrSpaces(app)) {
+                        ini.get("general").put("APP", app);
+                    }
                     if (highLightActionEnabled) {
                         ini.get("general").put("HIGHLIGHT_ACTION", "True");
                     }
