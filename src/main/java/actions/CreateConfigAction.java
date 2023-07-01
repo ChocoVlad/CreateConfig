@@ -4,6 +4,8 @@
 
 package actions;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.intellij.icons.AllIcons;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -17,52 +19,29 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.components.JBLabel;
-import com.intellij.ui.components.JBTextField;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.prefs.Preferences;
+import com.google.gson.JsonSyntaxException;
 
 public class CreateConfigAction extends AnAction {
 
-    private static final String PREF_DOWNLOAD_DIR = "downloadDir";
-    private static final String PREF_DEVICE_NAME = "deviceName";
-    private static final String PREF_SERVER_ADDRESS = "serverAddress";
-    private static final String PREF_APP = "app";
-    private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
-    private static final String PREF_HEADLESS_MODE = "headlessAction";
-    private static final String PREF_API_DATA = "apiDataAction";
-    private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAction";
-    private static final String PREF_TEST_FILES = "testFilesAction";
-
-    private String downloadDir;
-    private String deviceName;
-    private String serverAddress;
-    private String app;
-    private boolean highLightActionEnabled;
-    private boolean headlessActionEnabled;
-    private boolean apiDataActionEnabled;
-    private boolean authServiceActionEnabled;
-    private boolean testFilesActionEnabled;
-
-    private String isDownloadDir() { return downloadDir; }
-    private String isDeviceName() { return deviceName; }
-    private String isServerAddress() { return serverAddress; }
-    private String isApp() { return app; }
-    private boolean isHighLightActionEnabled() { return highLightActionEnabled; }
-    private boolean isHeadlessActionEnabled() { return headlessActionEnabled; }
-    private boolean isAuthServiceActionEnabled() { return authServiceActionEnabled; }
-    private boolean isTestFilesActionEnabled() { return testFilesActionEnabled; }
+    private static final String PREF_PARAMETERS = "parameters";
+    private Map<String, Parameter> parameters;
+    private DefaultTableModel tableModel;
+    private JTable table;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -95,7 +74,7 @@ public class CreateConfigAction extends AnAction {
         }
 
         JPopupMenu popupMenu = new JPopupMenu();
-        List<Component> menuComponents = new ArrayList<>();
+        java.util.List<Component> menuComponents = new ArrayList<>();
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
@@ -111,17 +90,6 @@ public class CreateConfigAction extends AnAction {
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
                                 saveConfigParameters(project);
-
-                                if (apiDataActionEnabled) {
-                                    VirtualFile previewDirectory = parentDirectory.findChild("data_asserts");
-                                    if (previewDirectory != null && previewDirectory.isDirectory()) {
-                                        VirtualFile dataFile = previewDirectory.findChild(fileName + ".py");
-                                        if (dataFile != null) {
-                                            VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
-                                            destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
-                                        }
-                                    }
-                                }
                             } catch (IOException ex) {
                                 ex.printStackTrace();
                             }
@@ -139,100 +107,80 @@ public class CreateConfigAction extends AnAction {
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Создаем панель настроек
-                JPanel panel = new JPanel(new GridBagLayout());
-                GridBagConstraints constraints = new GridBagConstraints();
-                constraints.gridx = 0;
-                constraints.gridy = 0;
-                constraints.anchor = GridBagConstraints.WEST;
+                JPanel panel = new JPanel();
+                panel.setLayout(new BorderLayout());
 
-                // Создаем компоненты для настроек
-                JLabel downloadDirLabel = new JBLabel("DOWNLOAD_DIR: ");
-                JBTextField downloadDirTextField = new JBTextField(downloadDir);
-                downloadDirTextField.setPreferredSize(new Dimension(400, 30));
+                // Создание модели таблицы
+                tableModel = new DefaultTableModel();
+                tableModel.addColumn("Название параметра");
+                tableModel.addColumn("Значение параметра");
+                tableModel.addColumn("Секция параметра");
+                tableModel.addColumn(" ");
 
-                JLabel deviceNameLabel = new JBLabel("DEVICE_NAME: ");
-                JBTextField deviceNameTextField = new JBTextField(deviceName);
-                deviceNameTextField.setPreferredSize(new Dimension(400, 30));
+                // Заполнение модели данными из параметров
+                for (String key : parameters.keySet()) {
+                    Parameter parameter = parameters.get(key);
+                    tableModel.addRow(new Object[]{key, parameter.getValue(), parameter.getSection(), null});
+                }
 
-                JLabel serverAddressLabel = new JBLabel("SERVER_ADDRESS: ");
-                JBTextField serverAddressTextField = new JBTextField(serverAddress);
-                serverAddressTextField.setPreferredSize(new Dimension(400, 30));
+                // Создание таблицы и установка модели
+                table = new JTable(tableModel);
 
-                JLabel appLabel = new JBLabel("APP: ");
-                JBTextField appTextField = new JBTextField(app);
-                appTextField.setPreferredSize(new Dimension(400, 30));
+                // Установка ширины столбца с иконкой удаления
+                table.getColumnModel().getColumn(3).setMaxWidth(30);
 
-                JCheckBox highLightActionCheckbox = new JCheckBox("HIGHLIGHT_ACTION");
-                highLightActionCheckbox.setSelected(highLightActionEnabled);
+                // Создание рендерера и редактора для столбца с иконкой удаления
+                table.getColumnModel().getColumn(3).setCellRenderer(new DeleteButtonRenderer());
+                table.getColumnModel().getColumn(3).setCellEditor(new DeleteButtonEditor());
 
-                JCheckBox headlessActionCheckbox = new JCheckBox("HEADLESS_MODE");
-                headlessActionCheckbox.setSelected(headlessActionEnabled);
+                // Добавление таблицы в панель с прокруткой
+                JScrollPane scrollPane = new JScrollPane(table);
+                panel.add(scrollPane, BorderLayout.CENTER);
 
-                JCheckBox apiDataActionCheckbox = new JCheckBox("API_DATA");
-                apiDataActionCheckbox.setSelected(apiDataActionEnabled);
+                // Создание панели для добавления нового параметра
+                JPanel addParameterPanel = new JPanel(new FlowLayout());
 
-                JCheckBox authServiceActionCheckbox = new JCheckBox("AUTH_SERVICE_ADDRESS");
-                authServiceActionCheckbox.setSelected(authServiceActionEnabled);
+                JTextField paramNameField = new JTextField();
+                paramNameField.setPreferredSize(new Dimension(200, 30));
+                JTextField paramValueField = new JTextField();
+                paramValueField.setPreferredSize(new Dimension(200, 30));
+                JTextField paramSectionField = new JTextField();
+                paramSectionField.setPreferredSize(new Dimension(200, 30));
 
-                JCheckBox testFilesActionCheckbox = new JCheckBox("TEST_FILES");
-                testFilesActionCheckbox.setSelected(testFilesActionEnabled);
+                addParameterPanel.add(new JLabel("Название параметра"));
+                addParameterPanel.add(paramNameField);
+                addParameterPanel.add(new JLabel("Значение параметра"));
+                addParameterPanel.add(paramValueField);
+                addParameterPanel.add(new JLabel("Секция параметра"));
+                addParameterPanel.add(paramSectionField);
 
-                // Добавляем компоненты на панель
-                panel.add(downloadDirLabel, constraints);
-                constraints.gridy++;
-                panel.add(downloadDirTextField, constraints);
-                constraints.gridy++;
-                panel.add(deviceNameLabel, constraints);
-                constraints.gridy++;
-                panel.add(deviceNameTextField, constraints);
-                constraints.gridy++;
-                panel.add(serverAddressLabel, constraints);
-                constraints.gridy++;
-                panel.add(serverAddressTextField, constraints);
-                constraints.gridy++;
-                panel.add(appLabel, constraints);
-                constraints.gridy++;
-                panel.add(appTextField, constraints);
-                constraints.gridy++;
-                panel.add(highLightActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(headlessActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(authServiceActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(testFilesActionCheckbox, constraints);
-                constraints.gridy++;
-                panel.add(apiDataActionCheckbox, constraints);
+                JButton addParameterButton = new JButton("Добавить параметр");
+                addParameterButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        String name = paramNameField.getText();
+                        String value = paramValueField.getText();
+                        String section = paramSectionField.getText();
+                        if (!StringUtil.isEmptyOrSpaces(name) && !StringUtil.isEmptyOrSpaces(value) && !StringUtil.isEmptyOrSpaces(section)) {
+                            tableModel.addRow(new Object[]{name, value, section, null});
+                            parameters.put(name, new Parameter(value, section));
+                            paramNameField.setText("");
+                            paramValueField.setText("");
+                            paramSectionField.setText("");
+                        }
+                    }
+                });
 
-                // Отображаем диалоговое окно с настройками
+                addParameterPanel.add(addParameterButton);
+
+                panel.add(addParameterPanel, BorderLayout.SOUTH);
+
                 int option = JOptionPane.showOptionDialog(null, panel, "Настройки", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
-
                 if (option == JOptionPane.OK_OPTION) {
-                    // Сохраняем значения настроек
-                    downloadDir = downloadDirTextField.getText();
-                    deviceName = deviceNameTextField.getText();
-                    serverAddress = serverAddressTextField.getText();
-                    app = appTextField.getText();
-                    highLightActionEnabled = highLightActionCheckbox.isSelected();
-                    headlessActionEnabled = headlessActionCheckbox.isSelected();
-                    apiDataActionEnabled = apiDataActionCheckbox.isSelected();
-                    authServiceActionEnabled = authServiceActionCheckbox.isSelected();
-                    testFilesActionEnabled = testFilesActionCheckbox.isSelected();
-
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
-                    preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
-                    preferences.put(PREF_DEVICE_NAME, deviceName);
-                    preferences.put(PREF_SERVER_ADDRESS, serverAddress);
-                    preferences.put(PREF_APP, app);
-                    preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
-                    preferences.putBoolean(PREF_HEADLESS_MODE, headlessActionEnabled);
-                    preferences.putBoolean(PREF_API_DATA, apiDataActionEnabled);
-                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES, testFilesActionEnabled);
-
+                    Gson gson = new Gson();
+                    preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
                     saveConfigParameters(project);
-
                 }
             }
         });
@@ -255,21 +203,24 @@ public class CreateConfigAction extends AnAction {
         super.update(e);
 
         Preferences preferences = Preferences.userNodeForPackage(getClass());
-        downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
-        deviceName = preferences.get(PREF_DEVICE_NAME, "");
-        serverAddress = preferences.get(PREF_SERVER_ADDRESS, "");
-        app = preferences.get(PREF_APP, "");
-        highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
-        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_MODE, false);
-        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA, false);
-        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS, false);
-        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES, false);
+        Gson gson = new Gson();
+        String json = preferences.get(PREF_PARAMETERS, "");
+
+        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+        try {
+            parameters = gson.fromJson(json, type);
+        } catch (JsonSyntaxException exception) {
+            parameters = new HashMap<>();
+        }
+
+        if (parameters == null) {
+            parameters = new HashMap<>();
+        }
 
         e.getPresentation().setEnabledAndVisible(true);
     }
 
     private void saveConfigParameters(Project project) {
-        // Получение пути к файлу config.ini
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
@@ -291,16 +242,6 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
-        // Получение значений параметров
-        String downloadDir = isDownloadDir();
-        String deviceName = isDeviceName();
-        String serverAddress = isServerAddress();
-        String app = isApp();
-        boolean highLightActionEnabled = isHighLightActionEnabled();
-        boolean headlessActionEnabled = isHeadlessActionEnabled();
-        boolean authServiceActionEnabled = isAuthServiceActionEnabled();
-        boolean testFilesActionEnabled = isTestFilesActionEnabled();
-
         Application application = ApplicationManager.getApplication();
         application.runWriteAction(() -> {
             try {
@@ -318,38 +259,15 @@ public class CreateConfigAction extends AnAction {
 
                     ini.load(iniFile);
 
-                    if (!ini.containsKey("general")) {
-                        ini.add("general");
-                    }
-                    if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
-                        ini.get("general").put("DOWNLOAD_DIR", downloadDir);
-                    }
-                    if (!StringUtil.isEmptyOrSpaces(deviceName)) {
-                        ini.get("general").put("DEVICE_NAME", deviceName);
-                    }
-                    if (!StringUtil.isEmptyOrSpaces(serverAddress)) {
-                        ini.get("general").put("SERVER_ADDRESS", serverAddress);
-                    }
-                    if (!StringUtil.isEmptyOrSpaces(app)) {
-                        ini.get("general").put("APP", app);
-                    }
-                    if (highLightActionEnabled) {
-                        ini.get("general").put("HIGHLIGHT_ACTION", "True");
-                    }
-                    if (headlessActionEnabled) {
-                        ini.get("general").put("HEADLESS_MODE", "True");
-                    }
-                    if (authServiceActionEnabled) {
-                        ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
-                    }
-
-                    if (testFilesActionEnabled) {
-                        VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                        if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
-                            if (!ini.containsKey("custom")) {
-                                ini.add("custom");
-                            }
-                            ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                    for (String key : parameters.keySet()) {
+                        Parameter parameter = parameters.get(key);
+                        String value = parameter.getValue();
+                        String section = parameter.getSection();
+                        if (!ini.containsKey(section)) {
+                            ini.add(section);
+                        }
+                        if (!StringUtil.isEmptyOrSpaces(value)) {
+                            ini.get(section).put(key, value);
                         }
                     }
 
@@ -370,5 +288,69 @@ public class CreateConfigAction extends AnAction {
                 Notifications.Bus.notify(notification);
             }
         });
+    }
+
+    static class Parameter {
+        private final String value;
+        private final String section;
+
+        Parameter(String value, String section) {
+            this.value = value;
+            this.section = section;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public String getSection() {
+            return section;
+        }
+    }
+
+    class DeleteButtonRenderer extends DefaultTableCellRenderer {
+        private final JButton deleteButton;
+
+        public DeleteButtonRenderer() {
+            deleteButton = new JButton(AllIcons.General.Remove);
+            deleteButton.setBorderPainted(false);
+            deleteButton.setContentAreaFilled(false);
+            deleteButton.setBackground(Color.RED); // Установка красного цвета фона кнопки
+            deleteButton.setOpaque(true); // Установка непрозрачности фона кнопки
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            return deleteButton;
+        }
+    }
+
+    class DeleteButtonEditor extends DefaultCellEditor {
+        private final JButton deleteButton;
+
+        public DeleteButtonEditor() {
+            super(new JCheckBox());
+            deleteButton = new JButton(AllIcons.General.Remove);
+            deleteButton.setBorderPainted(false);
+            deleteButton.setContentAreaFilled(false);
+            deleteButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    stopCellEditing();
+                    int row = table.getSelectedRow();
+                    if (row != -1) {
+                        String paramName = (String) table.getValueAt(row, 0);
+                        parameters.remove(paramName);
+                        tableModel.removeRow(row);
+                        fireEditingStopped();
+                    }
+                }
+            });
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            return deleteButton;
+        }
     }
 }
