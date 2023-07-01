@@ -37,10 +37,10 @@ public class CreateConfigAction extends AnAction {
 
     private static final String PREF_DOWNLOAD_DIR = "downloadDir";
     private static final String PREF_HIGHLIGHT_ACTION = "highLightAction";
-    private static final String PREF_HEADLESS_MODE = "headlessAction";
-    private static final String PREF_API_DATA = "apiDataAction";
-    private static final String PREF_AUTH_SERVICE_ADDRESS = "authServiceAction";
-    private static final String PREF_TEST_FILES = "testFilesAction";
+    private static final String PREF_HEADLESS_ACTION = "headlessAction";
+    private static final String PREF_API_DATA_ACTION = "apiDataAction";
+    private static final String PREF_AUTH_SERVICE_ADDRESS_ACTION = "authServiceAction";
+    private static final String PREF_TEST_FILES_ACTION = "testFilesAction";
 
     private String downloadDir;
     private boolean highLightActionEnabled;
@@ -115,7 +115,44 @@ public class CreateConfigAction extends AnAction {
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
-                                saveConfigParameters(project);
+                                File iniFile = new File(destinationFile.getPath());
+                                iniFile.createNewFile();
+
+                                Wini ini = new Wini();
+                                ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+                                ini.getConfig().setLowerCaseOption(false);
+
+                                ini.load(iniFile);
+
+                                if (!ini.containsKey("general")) {
+                                    ini.add("general");
+                                }
+
+                                if (!StringUtil.isEmptyOrSpaces(downloadDir)) {
+                                    ini.get("general").put("DOWNLOAD_DIR", downloadDir);
+                                }
+
+                                if (highLightActionEnabled) {
+                                    ini.get("general").put("HIGHLIGHT_ACTION", "True");
+                                }
+                                if (headlessActionEnabled) {
+                                    ini.get("general").put("HEADLESS_MODE", "True");
+                                }
+                                if (authServiceActionEnabled) {
+                                    ini.get("general").put("AUTH_SERVICE_ADDRESS", "http://dev-jenkinscontrol-service.unix.tensor.ru:8787");
+                                }
+
+                                if (testFilesActionEnabled) {
+                                    if (!ini.get("custom").containsKey("TEST_FILES")) {
+                                        VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                                        if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
+                                            if (!ini.containsKey("custom")) {
+                                                ini.add("custom");
+                                            }
+                                            ini.get("custom").put("TEST_FILES", testFilesDirectory.getPath());
+                                        }
+                                    }
+                                }
 
                                 if (apiDataActionEnabled) {
                                     VirtualFile previewDirectory = parentDirectory.findChild("data_asserts");
@@ -127,8 +164,21 @@ public class CreateConfigAction extends AnAction {
                                         }
                                     }
                                 }
+
+                                ini.store(iniFile);
+
+                                if (destinationFile != null) {
+                                    destinationFile.refresh(false, true);
+                                }
+
+                                String configName = configFile.getName();
+                                String notificationMessage = "Установлен config: " + configName;
+                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                                Notifications.Bus.notify(notification);
                             } catch (IOException ex) {
                                 ex.printStackTrace();
+                                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
+                                Notifications.Bus.notify(notification);
                             }
                         });
                     }
@@ -201,10 +251,10 @@ public class CreateConfigAction extends AnAction {
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     preferences.put(PREF_DOWNLOAD_DIR, downloadDir);
                     preferences.putBoolean(PREF_HIGHLIGHT_ACTION, highLightActionEnabled);
-                    preferences.putBoolean(PREF_HEADLESS_MODE, headlessActionEnabled);
-                    preferences.putBoolean(PREF_API_DATA, apiDataActionEnabled);
-                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS, authServiceActionEnabled);
-                    preferences.putBoolean(PREF_TEST_FILES, testFilesActionEnabled);
+                    preferences.putBoolean(PREF_HEADLESS_ACTION, headlessActionEnabled);
+                    preferences.putBoolean(PREF_API_DATA_ACTION, apiDataActionEnabled);
+                    preferences.putBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, authServiceActionEnabled);
+                    preferences.putBoolean(PREF_TEST_FILES_ACTION, testFilesActionEnabled);
 
                     saveConfigParameters(project);
 
@@ -232,10 +282,10 @@ public class CreateConfigAction extends AnAction {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         downloadDir = preferences.get(PREF_DOWNLOAD_DIR, "");
         highLightActionEnabled = preferences.getBoolean(PREF_HIGHLIGHT_ACTION, false);
-        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_MODE, false);
-        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA, false);
-        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS, false);
-        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES, false);
+        headlessActionEnabled = preferences.getBoolean(PREF_HEADLESS_ACTION, false);
+        apiDataActionEnabled = preferences.getBoolean(PREF_API_DATA_ACTION, false);
+        authServiceActionEnabled = preferences.getBoolean(PREF_AUTH_SERVICE_ADDRESS_ACTION, false);
+        testFilesActionEnabled = preferences.getBoolean(PREF_TEST_FILES_ACTION, false);
 
         e.getPresentation().setEnabledAndVisible(true);
     }
