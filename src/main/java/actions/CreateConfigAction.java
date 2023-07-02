@@ -37,10 +37,13 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_PARAMETERS = "parameters";
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
+
+    // Карта для хранения параметров
     private Map<String, Parameter> parameters;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
+        // Получаем проект
         Project project = e.getProject();
         if (project == null) {
             return;
@@ -48,12 +51,14 @@ public class CreateConfigAction extends AnAction {
 
         FileDocumentManager.getInstance().saveAllDocuments();
 
+        // Получаем выбранные файлы
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
         }
         VirtualFile currentFile = selectedFiles[0];
 
+        // Получаем родительскую директорию
         VirtualFile parentDirectory = currentFile.getParent();
         if (parentDirectory == null) {
             return;
@@ -64,27 +69,39 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
+        // Получаем файлы из директории "config"
         VirtualFile[] configFiles = configsDirectory.getChildren();
         if (configFiles.length == 0) {
             return;
         }
 
+        // Создаем контекстное меню
         JPopupMenu popupMenu = new JPopupMenu();
+
+        // Создаем список компонентов меню
         java.util.List<Component> menuComponents = new ArrayList<>();
 
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
+                // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
+                // Создаем пункт меню с именем файла и иконкой
                 JMenuItem menuItem = new JMenuItem(fileName, AllIcons.FileTypes.Config);
+                // Добавляем слушатель на пункт меню
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
+                        // Создаем приложение
                         Application application = ApplicationManager.getApplication();
+                        // Запускаем операцию записи
                         application.runWriteAction(() -> {
                             try {
+                                // Создаем файл конфигурации в родительской директории
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                // Копируем содержимое из исходного файла конфигурации
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
+                                // Сохраняем параметры конфигурации
                                 saveConfigParameters(project);
 
                                 // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
@@ -99,19 +116,23 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 }
                             } catch (IOException ex) {
+                                // Выводим ошибку в консоль
                                 ex.printStackTrace();
                             }
                         });
                     }
                 });
+                // Добавляем пункт меню в список компонентов меню
                 menuComponents.add(menuItem);
             }
         }
 
+        // Сортируем компоненты меню по имени
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
+        // Создаем пункт меню "Настройки"
         JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
-        settingsItem.setToolTipText("Открыть настройки");
+        // Добавляем слушатель на пункт меню "Настройки"
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -152,6 +173,7 @@ public class CreateConfigAction extends AnAction {
                 table.getColumn("-").setCellRenderer(new IconRenderer());
                 table.getColumn("-").setCellEditor(new IconEditor(table, model));
                 table.getColumnModel().getColumn(0).setMaxWidth(40);
+                table.getColumnModel().getColumn(4).setMaxWidth(60);
 
                 JScrollPane scrollPane = new JScrollPane(table);
                 panel.add(scrollPane, BorderLayout.CENTER);
@@ -186,7 +208,7 @@ public class CreateConfigAction extends AnAction {
                 });
                 inputPanel.add(addButton);
 
-                // Add Special Parameters Button
+                // Добавляем кнопку "Специальные параметры"
                 JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
                 specialParametersButton.addActionListener(new ActionListener() {
                     @Override
@@ -243,10 +265,13 @@ public class CreateConfigAction extends AnAction {
             }
         });
 
+        // Добавляем все компоненты в контекстное меню
         for (Component component : menuComponents) {
             popupMenu.add(component);
         }
+        // Добавляем разделитель в меню
         popupMenu.addSeparator();
+        // Добавляем пункт меню "Настройки" в контекстное меню
         popupMenu.add(settingsItem);
 
         Component component = e.getInputEvent().getComponent();
@@ -256,6 +281,7 @@ public class CreateConfigAction extends AnAction {
         }
     }
 
+    // Метод создания поля с меткой
     private Component labeledField(String label, JTextField textField) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(new JLabel(label), BorderLayout.NORTH);
@@ -267,10 +293,12 @@ public class CreateConfigAction extends AnAction {
     public void update(AnActionEvent e) {
         super.update(e);
 
+        // Получаем объект настроек
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         Gson gson = new Gson();
         String json = preferences.get(PREF_PARAMETERS, "");
 
+        // Определяем тип данных для GSON
         Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
         try {
             parameters = gson.fromJson(json, type);
@@ -278,6 +306,7 @@ public class CreateConfigAction extends AnAction {
             parameters = new HashMap<>();
         }
 
+        // Если карта параметров не определена, то создаем пустую карту параметров
         if (parameters == null) {
             parameters = new HashMap<>();
         }
@@ -285,6 +314,7 @@ public class CreateConfigAction extends AnAction {
         e.getPresentation().setEnabledAndVisible(true);
     }
 
+    // Метод сохранения параметров конфигурации
     private void saveConfigParameters(Project project) {
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
@@ -341,7 +371,7 @@ public class CreateConfigAction extends AnAction {
                     // При выставленном TEST_FILES и копируется
                     if (getPrefState(PREF_TEST_FILES)) {
                         VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
-                        if (testFilesDirectory != null) {
+                        if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
                             String testFilesPath = testFilesDirectory.getPath();
                             if (!ini.containsKey("custom")) {
                                 ini.add("custom");
@@ -369,16 +399,19 @@ public class CreateConfigAction extends AnAction {
         });
     }
 
+    // Метод получения состояния настройки
     private boolean getPrefState(String prefName) {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         return preferences.getBoolean(prefName, false);
     }
 
+    // Метод установки состояния настройки
     private void setPrefState(String prefName, boolean state) {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         preferences.putBoolean(prefName, state);
     }
 
+    // Внутренний класс для описания параметра
     static class Parameter {
         private final String value;
         private final String section;
