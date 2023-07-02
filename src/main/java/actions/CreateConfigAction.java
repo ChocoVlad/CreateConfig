@@ -35,49 +35,43 @@ import com.google.gson.JsonSyntaxException;
 public class CreateConfigAction extends AnAction {
 
     private static final String PREF_PARAMETERS = "parameters";
+    private static final String PREF_API_DATA = "API_DATA";
+    private static final String PREF_TEST_FILES = "TEST_FILES";
     private Map<String, Parameter> parameters;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
-        // Получаем текущий проект
         Project project = e.getProject();
         if (project == null) {
             return;
         }
 
-        // Сохраняем все документы перед выполнением действия
         FileDocumentManager.getInstance().saveAllDocuments();
 
-        // Получаем выбранный в редакторе файл
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
         }
         VirtualFile currentFile = selectedFiles[0];
 
-        // Получаем родительскую директорию файла
         VirtualFile parentDirectory = currentFile.getParent();
         if (parentDirectory == null) {
             return;
         }
 
-        // Проверяем, существует ли директория "config"
         VirtualFile configsDirectory = parentDirectory.findChild("config");
         if (configsDirectory == null || !configsDirectory.isDirectory()) {
             return;
         }
 
-        // Получаем все файлы в директории "config"
         VirtualFile[] configFiles = configsDirectory.getChildren();
         if (configFiles.length == 0) {
             return;
         }
 
-        // Создаем всплывающее меню
         JPopupMenu popupMenu = new JPopupMenu();
         java.util.List<Component> menuComponents = new ArrayList<>();
 
-        // Добавляем пункты меню для каждого файла конфигурации
         for (VirtualFile configFile : configFiles) {
             if (!configFile.isDirectory()) {
                 String fileName = configFile.getNameWithoutExtension();
@@ -88,13 +82,22 @@ public class CreateConfigAction extends AnAction {
                         Application application = ApplicationManager.getApplication();
                         application.runWriteAction(() -> {
                             try {
-                                // Создаем файл "config.ini" в родительской директории текущего файла
                                 VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
-                                // Копируем содержимое выбранного файла конфигурации в "config.ini"
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
-                                // Сохраняем параметры конфигурации
                                 saveConfigParameters(project);
+
+                                // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
+                                if (getPrefState(PREF_API_DATA)) {
+                                    VirtualFile dataAssertsDirectory = parentDirectory.findChild("data_asserts");
+                                    if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
+                                        VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
+                                        if (dataFile != null) {
+                                            VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                            destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                        }
+                                    }
+                                }
                             } catch (IOException ex) {
                                 ex.printStackTrace();
                             }
@@ -105,20 +108,16 @@ public class CreateConfigAction extends AnAction {
             }
         }
 
-        // Сортируем пункты меню по имени файла
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
-        // Добавляем пункт меню для открытия настроек
         JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
         settingsItem.setToolTipText("Открыть настройки");
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Создаем панель для настроек
                 JPanel panel = new JPanel();
                 panel.setLayout(new BorderLayout());
 
-                // Создаем массив данных для заполнения таблицы
                 Object[][] data = new Object[parameters.size()][5];
                 String[] columnNames = {" ", "Название", "Значение", "Секция", "-"};
 
@@ -132,7 +131,6 @@ public class CreateConfigAction extends AnAction {
                     i++;
                 }
 
-                // Создаем модель таблицы
                 DefaultTableModel model = new DefaultTableModel(data, columnNames) {
                     @Override
                     public Class<?> getColumnClass(int columnIndex) {
@@ -150,12 +148,10 @@ public class CreateConfigAction extends AnAction {
                     }
                 };
 
-                // Создаем таблицу с настройками
                 JTable table = new JTable(model);
-                // Устанавливаем рендерер и редактор для столбца с иконкой
                 table.getColumn("-").setCellRenderer(new IconRenderer());
                 table.getColumn("-").setCellEditor(new IconEditor(table, model));
-                table.getColumnModel().getColumn(0).setMaxWidth(40); // Устанавливаем максимальную ширину столбца
+                table.getColumnModel().getColumn(0).setMaxWidth(40);
 
                 JScrollPane scrollPane = new JScrollPane(table);
                 panel.add(scrollPane, BorderLayout.CENTER);
@@ -190,14 +186,47 @@ public class CreateConfigAction extends AnAction {
                 });
                 inputPanel.add(addButton);
 
+                // Add Special Parameters Button
+                JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
+                specialParametersButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        JCheckBox apiDataCheckBox = new JCheckBox("API_DATA");
+                        apiDataCheckBox.setSelected(getPrefState(PREF_API_DATA));
+                        apiDataCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                            }
+                        });
+
+                        JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
+                        testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
+                        testFilesCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                            }
+                        });
+
+                        JPanel checkBoxPanel = new JPanel(new GridLayout(2, 1));
+                        checkBoxPanel.add(apiDataCheckBox);
+                        checkBoxPanel.add(testFilesCheckBox);
+
+                        JOptionPane.showConfirmDialog(
+                                null, checkBoxPanel, "Выберите специальные параметры",
+                                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE);
+                    }
+                });
+
+                inputPanel.add(specialParametersButton);
+
                 panel.add(inputPanel, BorderLayout.SOUTH);
 
-                // Отображаем диалоговое окно с настройками
                 int result = JOptionPane.showConfirmDialog(null, panel, "Настройки",
                         JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
                 if (result == JOptionPane.OK_OPTION) {
-                    // Сохраняем измененные параметры
                     parameters.clear();
                     for (int j = 0; j < model.getRowCount(); j++) {
                         Boolean active = (Boolean) model.getValueAt(j, 0);
@@ -209,20 +238,17 @@ public class CreateConfigAction extends AnAction {
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     Gson gson = new Gson();
                     preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
-                    // Сохраняем параметры конфигурации
                     saveConfigParameters(project);
                 }
             }
         });
 
-        // Добавляем пункты меню во всплывающее меню
         for (Component component : menuComponents) {
             popupMenu.add(component);
         }
         popupMenu.addSeparator();
         popupMenu.add(settingsItem);
 
-        // Отображаем всплывающее меню
         Component component = e.getInputEvent().getComponent();
         if (component instanceof JComponent) {
             JComponent jComponent = (JComponent) component;
@@ -231,7 +257,6 @@ public class CreateConfigAction extends AnAction {
     }
 
     private Component labeledField(String label, JTextField textField) {
-        // Создаем компонент для поля ввода с меткой
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(new JLabel(label), BorderLayout.NORTH);
         panel.add(textField, BorderLayout.CENTER);
@@ -242,7 +267,6 @@ public class CreateConfigAction extends AnAction {
     public void update(AnActionEvent e) {
         super.update(e);
 
-        // Загружаем сохраненные параметры из настроек
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         Gson gson = new Gson();
         String json = preferences.get(PREF_PARAMETERS, "");
@@ -258,59 +282,48 @@ public class CreateConfigAction extends AnAction {
             parameters = new HashMap<>();
         }
 
-        // Включаем и отображаем действие
         e.getPresentation().setEnabledAndVisible(true);
     }
 
     private void saveConfigParameters(Project project) {
-        // Получаем выбранный в редакторе файл
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
         }
         VirtualFile currentFile = selectedFiles[0];
 
-        // Получаем родительскую директорию файла
         VirtualFile parentDirectory = currentFile.getParent();
         if (parentDirectory == null) {
             return;
         }
 
-        // Проверяем, существует ли директория "config"
         VirtualFile configsDirectory = parentDirectory.findChild("config");
         if (configsDirectory == null || !configsDirectory.isDirectory()) {
             return;
         }
 
-        // Получаем все файлы в директории "config"
         VirtualFile[] configFiles = configsDirectory.getChildren();
         if (configFiles.length == 0) {
             return;
         }
 
-        // Выполняем операцию записи файлов внутри блока Application.runWriteAction()
         Application application = ApplicationManager.getApplication();
         application.runWriteAction(() -> {
             try {
-                // Проверяем, существует ли уже файл "config.ini"
                 VirtualFile existsConfigFile = currentFile.getParent().findChild("config.ini");
 
                 if (existsConfigFile != null) {
-                    // Создаем новый файл "config.ini"
                     VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
 
                     File iniFile = new File(destinationFile.getPath());
                     iniFile.createNewFile();
 
-                    // Создаем объект для работы с INI-файлами
                     Wini ini = new Wini();
                     ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                     ini.getConfig().setLowerCaseOption(false);
 
-                    // Загружаем существующий INI-файл, если он есть
                     ini.load(iniFile);
 
-                    // Записываем параметры конфигурации в INI-файл
                     for (String key : parameters.keySet()) {
                         Parameter parameter = parameters.get(key);
                         String value = parameter.getValue();
@@ -325,15 +338,24 @@ public class CreateConfigAction extends AnAction {
                             }
                         }
                     }
+                    // При выставленном TEST_FILES и копируется
+                    if (getPrefState(PREF_TEST_FILES)) {
+                        VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
+                        if (testFilesDirectory != null) {
+                            String testFilesPath = testFilesDirectory.getPath();
+                            if (!ini.containsKey("custom")) {
+                                ini.add("custom");
+                            }
+                            ini.get("custom").put("TEST_FILES", testFilesPath);
+                        }
+                    }
 
-                    // Сохраняем INI-файл
                     ini.store(iniFile);
 
                     if (destinationFile != null) {
                         destinationFile.refresh(false, true);
                     }
 
-                    // Отображаем уведомление об успешной установке конфигурации
                     String configName = configFiles[0].getName();
                     String notificationMessage = "Установлен config: " + configName;
                     Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
@@ -341,11 +363,20 @@ public class CreateConfigAction extends AnAction {
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
-                // Отображаем уведомление об ошибке при установке конфигурации
                 Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
                 Notifications.Bus.notify(notification);
             }
         });
+    }
+
+    private boolean getPrefState(String prefName) {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        return preferences.getBoolean(prefName, false);
+    }
+
+    private void setPrefState(String prefName, boolean state) {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        preferences.putBoolean(prefName, state);
     }
 
     static class Parameter {
