@@ -219,6 +219,7 @@ public class CreateConfigAction extends AnAction {
                     i++;
                 }
 
+                // Создаем модель таблицы
                 DefaultTableModel model = new DefaultTableModel(data, columnNames) {
                     @Override
                     public Class<?> getColumnClass(int columnIndex) {
@@ -234,7 +235,17 @@ public class CreateConfigAction extends AnAction {
                                 return super.getColumnClass(columnIndex);
                         }
                     }
+
+                    @Override
+                    public void removeRow(int row) {
+                        if (getRowCount() > 1) {
+                            super.removeRow(row);
+                        }
+                    }
                 };
+
+                // Добавляем пустую строку в конец модели таблицы
+                model.addRow(new Object[]{null, null, null, null, null});
 
                 JTable table = new JTable(model);
                 table.getTableHeader().setReorderingAllowed(false);
@@ -242,6 +253,14 @@ public class CreateConfigAction extends AnAction {
                 table.getColumn("-").setCellEditor(new IconEditor(table, model));
                 table.getColumnModel().getColumn(0).setMaxWidth(40);
                 table.getColumnModel().getColumn(4).setMaxWidth(60);
+
+                // Устанавливаем высоту строки последней строки на 1 пиксель
+                int lastRowIndex = table.getRowCount() - 1;
+                int rowHeight = 1;
+                table.setRowHeight(lastRowIndex, rowHeight);
+
+                // Убираем отступы между строками
+                table.setRowMargin(-1);
 
                 JScrollPane scrollPane = new JScrollPane(table);
                 panel.add(scrollPane, BorderLayout.CENTER);
@@ -337,8 +356,9 @@ public class CreateConfigAction extends AnAction {
                         String name = (String) model.getValueAt(j, 1);
                         String value = (String) model.getValueAt(j, 2);
                         String section = (String) model.getValueAt(j, 3);
-                        parameters.put(name, new Parameter(value, section, active));
-                    }
+                        if (name != null & value != null & section != null) {
+                            parameters.put(name, new Parameter(value, section, active));
+                        }                    }
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     Gson gson = new Gson();
                     preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
@@ -564,10 +584,31 @@ public class CreateConfigAction extends AnAction {
                 button.setForeground(table.getForeground());
                 button.setBackground(table.getBackground());
             }
+
             label = "";
             button.setText(label);
             isPushed = true;
+
+            // Проверяем, является ли текущая строка последней пустой строкой
+            if (row == table.getRowCount() - 1 && isLastEmptyRow(row)) {
+                button.setEnabled(false);
+            } else {
+                button.setEnabled(true);
+            }
+
             return button;
+        }
+
+        // Метод для проверки, является ли строка последней пустой строкой
+        private boolean isLastEmptyRow(int row) {
+            for (int i = row + 1; i < table.getRowCount(); i++) {
+                for (int j = 1; j < table.getColumnCount(); j++) {
+                    if (table.getValueAt(i, j) != null) {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         public Object getCellEditorValue() {
