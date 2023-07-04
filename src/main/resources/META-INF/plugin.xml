@@ -37,7 +37,7 @@
     </description>
 
     <!-- Minimum version of IntelliJ Platform -->
-    <idea-version since-build="193.0"/>
+    <idea-version since-build="210.0"/>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
