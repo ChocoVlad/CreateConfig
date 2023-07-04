@@ -28,8 +28,15 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.List;
 import java.util.prefs.Preferences;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.google.gson.JsonSyntaxException;
 
 public class CreateConfigAction extends AnAction {
@@ -90,7 +97,33 @@ public class CreateConfigAction extends AnAction {
                 // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
                 // Создаем пункт меню с именем файла и иконкой
-                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.FileTypes.Config);
+                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.General.ArrowRight);
+
+                // Проверяем наличие файла config.ini
+                VirtualFile configOldFile = parentDirectory.findChild("config.ini");
+                if (configOldFile != null) {
+                    // Проверяем наличие комментария о копировании в файле config.ini
+                    try {
+                        List<String> lines = Files.readAllLines(Paths.get(configOldFile.getPath()), StandardCharsets.UTF_8);
+                        for (String line : lines) {
+                            if (line.startsWith("#") && line.contains("Файл конфигурации скопирован из: ")) {
+                                // Извлекаем имя файла из комментария
+                                Matcher matcher = Pattern.compile("Файл конфигурации скопирован из: (.*)").matcher(line);
+                                if (matcher.find()) {
+                                    String copiedFromFile = matcher.group(1);
+                                        if (copiedFromFile.equals(configFile.getName())) {
+                                            menuItem.setIcon(AllIcons.General.InspectionsOK); // Устанавливаем иконку для файла, если найден соответствующий файл в списке
+                                            break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+
                 // Добавляем слушатель на пункт меню
                 menuItem.addActionListener(new ActionListener() {
                     @Override
@@ -130,6 +163,23 @@ public class CreateConfigAction extends AnAction {
                                         }
                                     }
                                 }
+                                // Проставляем комментарий в новом файле config.ini
+                                String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
+                                try {
+                                    VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                    if (configFile != null) {
+                                        String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
+                                        currentContent += copiedFromComment + "\n";
+                                        configFile.setBinaryContent(currentContent.getBytes(StandardCharsets.UTF_8));
+                                    }
+                                } catch (IOException ex) {
+                                    ex.printStackTrace();
+                                    notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                    Notifications.Bus.notify(notification);
+                                }
+
+                                // Обновляем файл config.ini для получения списка файлов с комментариями
+                                currentFile.getParent().refresh(false, true);
                             } catch (IOException ex) {
                                 // Выводим ошибку в консоль
                                 ex.printStackTrace();
@@ -146,7 +196,7 @@ public class CreateConfigAction extends AnAction {
         menuComponents.sort(Comparator.comparing(c -> ((JMenuItem) c).getText()));
 
         // Создаем пункт меню "Настройки"
-        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.GearPlain);
+        JMenuItem settingsItem = new JMenuItem("Настройки", AllIcons.General.Settings);
         // Добавляем слушатель на пункт меню "Настройки"
         settingsItem.addActionListener(new ActionListener() {
             @Override
