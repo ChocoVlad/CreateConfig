@@ -24,8 +24,6 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -239,6 +237,7 @@ public class CreateConfigAction extends AnAction {
                 };
 
                 JTable table = new JTable(model);
+                table.getTableHeader().setReorderingAllowed(false);
                 table.getColumn("-").setCellRenderer(new IconRenderer());
                 table.getColumn("-").setCellEditor(new IconEditor(table, model));
                 table.getColumnModel().getColumn(0).setMaxWidth(40);
@@ -267,7 +266,7 @@ public class CreateConfigAction extends AnAction {
                         String value = valueField.getText();
                         String section = sectionField.getText();
                         if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
-                            model.addRow(new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                            model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
                             parameters.put(name, new Parameter(value, section, true));
                             nameField.setText("");
                             valueField.setText("");
@@ -275,6 +274,7 @@ public class CreateConfigAction extends AnAction {
                         }
                     }
                 });
+
                 inputPanel.add(addButton);
 
                 // Добавляем кнопку "Специальные параметры"
