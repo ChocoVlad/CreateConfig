@@ -54,6 +54,8 @@ public class CreateConfigAction extends AnAction {
         // Получаем выбранные файлы
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
+            Notification notification = new Notification("ConfigCopy", "Предупреждение", "Нет файла в превью программы", NotificationType.WARNING);
+            Notifications.Bus.notify(notification);
             return;
         }
         VirtualFile currentFile = selectedFiles[0];
@@ -66,6 +68,8 @@ public class CreateConfigAction extends AnAction {
 
         VirtualFile configsDirectory = parentDirectory.findChild("config");
         if (configsDirectory == null || !configsDirectory.isDirectory()) {
+            Notification notification = new Notification("ConfigCopy", "Предупреждение", "На уровне с текущим файлом должна быть папка config", NotificationType.WARNING);
+            Notifications.Bus.notify(notification);
             return;
         }
 
@@ -101,6 +105,11 @@ public class CreateConfigAction extends AnAction {
                                 // Копируем содержимое из исходного файла конфигурации
                                 destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
+                                String configName = configFile.getName();
+                                String notificationMessage = "Установлен config: " + configName;
+                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                                Notifications.Bus.notify(notification);
+
                                 // Сохраняем параметры конфигурации
                                 saveConfigParameters(project);
 
@@ -110,8 +119,14 @@ public class CreateConfigAction extends AnAction {
                                     if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
                                         VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
                                         if (dataFile != null) {
-                                            VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
-                                            destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                            try {
+                                                VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                                destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                            } catch (IOException ex) {
+                                                ex.printStackTrace();
+                                                notification = new Notification("ConfigCopy", "Ошибка", "Ошибка копирования файла data.py", NotificationType.ERROR);
+                                                Notifications.Bus.notify(notification);
+                                            }
                                         }
                                     }
                                 }
@@ -385,15 +400,10 @@ public class CreateConfigAction extends AnAction {
                     if (destinationFile != null) {
                         destinationFile.refresh(false, true);
                     }
-
-                    String configName = configFiles[0].getName();
-                    String notificationMessage = "Установлен config: " + configName;
-                    Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
-                    Notifications.Bus.notify(notification);
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
-                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при установке config файла", NotificationType.ERROR);
+                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при записи параметров в config.ini", NotificationType.ERROR);
                 Notifications.Bus.notify(notification);
             }
         });
