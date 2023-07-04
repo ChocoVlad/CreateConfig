@@ -24,6 +24,8 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -43,6 +45,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_PARAMETERS = "parameters";
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
+    private static final String PREF_CHECK_WHAT_CONFIG = "CHECK_WHAT_CONFIG";
 
     // Карта для хранения параметров
     private Map<String, Parameter> parameters;
@@ -163,22 +166,24 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 }
                                 // Проставляем комментарий в новом файле config.ini
-                                String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
-                                try {
-                                    VirtualFile configFile = currentFile.getParent().findChild("config.ini");
-                                    if (configFile != null) {
-                                        String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
-                                        currentContent += copiedFromComment + "\n";
-                                        configFile.setBinaryContent(currentContent.getBytes(StandardCharsets.UTF_8));
+                                if (getPrefState(PREF_CHECK_WHAT_CONFIG)) {
+                                    String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
+                                    try {
+                                        VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                        if (configFile != null) {
+                                            String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
+                                            currentContent = currentContent.replaceFirst("^\\s*", "");
+                                            String newContent = copiedFromComment + "\n" + currentContent;
+                                            configFile.setBinaryContent(newContent.getBytes(StandardCharsets.UTF_8));
+                                        }
+                                    } catch (IOException ex) {
+                                        ex.printStackTrace();
+                                        notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                        Notifications.Bus.notify(notification);
                                     }
-                                } catch (IOException ex) {
-                                    ex.printStackTrace();
-                                    notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
-                                    Notifications.Bus.notify(notification);
                                 }
-
-                                // Обновляем файл config.ini для получения списка файлов с комментариями
-                                currentFile.getParent().refresh(false, true);
+//                                // Обновляем файл config.ini для получения списка файлов с комментариями
+//                                currentFile.getParent().refresh(false, true);
                             } catch (IOException ex) {
                                 // Выводим ошибку в консоль
                                 ex.printStackTrace();
@@ -285,6 +290,7 @@ public class CreateConfigAction extends AnAction {
                                 setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
                             }
                         });
+                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
 
                         JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
                         testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
@@ -294,10 +300,22 @@ public class CreateConfigAction extends AnAction {
                                 setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
                             }
                         });
+                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
 
-                        JPanel checkBoxPanel = new JPanel(new GridLayout(2, 1));
+                        JCheckBox checkWhatConfigCheckBox = new JCheckBox("CHECK_WHAT_CONFIG");
+                        checkWhatConfigCheckBox.setSelected(getPrefState(PREF_CHECK_WHAT_CONFIG));
+                        checkWhatConfigCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                            }
+                        });
+                        checkWhatConfigCheckBox.setToolTipText("<html><b>CHECK_WHAT_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+
+                        JPanel checkBoxPanel = new JPanel(new GridLayout(3, 1));
                         checkBoxPanel.add(apiDataCheckBox);
                         checkBoxPanel.add(testFilesCheckBox);
+                        checkBoxPanel.add(checkWhatConfigCheckBox);
 
                         JOptionPane.showConfirmDialog(
                                 null, checkBoxPanel, "Выберите специальные параметры",
