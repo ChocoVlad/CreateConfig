@@ -46,7 +46,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_PARAMETERS = "parameters";
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
-    private static final String PREF_CHECK_WHAT_CONFIG = "CHECK_WHAT_CONFIG";
+    private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
@@ -170,7 +170,7 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 }
                                 // Проставляем комментарий в новом файле config.ini
-                                if (getPrefState(PREF_CHECK_WHAT_CONFIG)) {
+                                if (getPrefState(PREF_CHECK_CONFIG)) {
                                     String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
                                     try {
                                         VirtualFile configFile = currentFile.getParent().findChild("config.ini");
@@ -328,15 +328,15 @@ public class CreateConfigAction extends AnAction {
                                 });
                                 testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
 
-                                JCheckBox checkWhatConfigCheckBox = new JCheckBox("CHECK_WHAT_CONFIG");
-                                checkWhatConfigCheckBox.setSelected(getPrefState(PREF_CHECK_WHAT_CONFIG));
-                                checkWhatConfigCheckBox.addActionListener(new ActionListener() {
+                                JCheckBox checkConfigCheckBox = new JCheckBox("CHECK_CONFIG");
+                                checkConfigCheckBox.setSelected(getPrefState(PREF_CHECK_CONFIG));
+                                checkConfigCheckBox.addActionListener(new ActionListener() {
                                     @Override
                                     public void actionPerformed(ActionEvent e) {
-                                        setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                                        setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
                                     }
                                 });
-                                checkWhatConfigCheckBox.setToolTipText("<html><b>CHECK_WHAT_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+                                checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
                                 JDialog specialParametersDialog = new JDialog();
 
                                 JButton saveButton = new JButton("ОК");
@@ -345,7 +345,7 @@ public class CreateConfigAction extends AnAction {
                                     public void actionPerformed(ActionEvent e) {
                                         setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
                                         setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
-                                        setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                                        setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
                                         specialParametersDialog.dispose();
                                     }
                                 });
@@ -357,7 +357,7 @@ public class CreateConfigAction extends AnAction {
                                 gbc.fill = GridBagConstraints.HORIZONTAL;
                                 checkBoxPanel.add(apiDataCheckBox, gbc);
                                 checkBoxPanel.add(testFilesCheckBox, gbc);
-                                checkBoxPanel.add(checkWhatConfigCheckBox, gbc);
+                                checkBoxPanel.add(checkConfigCheckBox, gbc);
                                 checkBoxPanel.add(new JPanel(), gbc);
                                 checkBoxPanel.add(saveButton, gbc);
 
