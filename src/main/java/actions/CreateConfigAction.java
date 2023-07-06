@@ -462,6 +462,7 @@ public class CreateConfigAction extends AnAction {
                     });
 
                     // Отображение диалогового окна
+                    settingsDialog.setTitle("Настройки параметров");
                     settingsDialogOpen = settingsDialog;
                     settingsDialog.setVisible(true);
                 } else {
