@@ -18,12 +18,15 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -44,6 +47,9 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_WHAT_CONFIG = "CHECK_WHAT_CONFIG";
+
+    private JDialog settingsDialogOpen;
+    private JDialog specialParametersDialogOpen;
 
     // Карта для хранения параметров
     private Map<String, Parameter> parameters;
@@ -180,8 +186,6 @@ public class CreateConfigAction extends AnAction {
                                         Notifications.Bus.notify(notification);
                                     }
                                 }
-//                                // Обновляем файл config.ini для получения списка файлов с комментариями
-//                                currentFile.getParent().refresh(false, true);
                             } catch (IOException ex) {
                                 // Выводим ошибку в консоль
                                 ex.printStackTrace();
@@ -203,166 +207,265 @@ public class CreateConfigAction extends AnAction {
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                JPanel panel = new JPanel();
-                panel.setLayout(new BorderLayout());
+                // Создание диалога для отображения панели
+                if (settingsDialogOpen == null || !settingsDialogOpen.isShowing()) {
+                    JPanel panel = new JPanel();
+                    panel.setLayout(new BorderLayout());
 
-                Object[][] data = new Object[parameters.size()][5];
-                String[] columnNames = {" ", "Название", "Значение", "Секция", "-"};
+                    Object[][] data = new Object[parameters.size()][5];
+                    String[] columnNames = {" ", "Название", "Значение", "Секция", "-"};
 
-                int i = 0;
-                for (Map.Entry<String, Parameter> entry : parameters.entrySet()) {
-                    data[i][0] = entry.getValue().isActive();
-                    data[i][1] = entry.getKey();
-                    data[i][2] = entry.getValue().getValue();
-                    data[i][3] = entry.getValue().getSection();
-                    data[i][4] = AllIcons.Actions.GC;
-                    i++;
-                }
-
-                // Создаем модель таблицы
-                DefaultTableModel model = new DefaultTableModel(data, columnNames) {
-                    @Override
-                    public Class<?> getColumnClass(int columnIndex) {
-                        switch (columnIndex) {
-                            case 0:
-                                return Boolean.class;
-                            case 1:
-                            case 2:
-                            case 3:
-                            case 4:
-                                return Object.class;
-                            default:
-                                return super.getColumnClass(columnIndex);
-                        }
+                    int i = 0;
+                    for (Map.Entry<String, Parameter> entry : parameters.entrySet()) {
+                        data[i][0] = entry.getValue().isActive();
+                        data[i][1] = entry.getKey();
+                        data[i][2] = entry.getValue().getValue();
+                        data[i][3] = entry.getValue().getSection();
+                        data[i][4] = AllIcons.Actions.GC;
+                        i++;
                     }
 
-                    @Override
-                    public void removeRow(int row) {
-                        if (getRowCount() > 1) {
-                            super.removeRow(row);
-                        }
-                    }
-                };
-
-                // Добавляем пустую строку в конец модели таблицы
-                model.addRow(new Object[]{null, null, null, null, null});
-
-                JTable table = new JTable(model);
-                table.getTableHeader().setReorderingAllowed(false);
-                table.getColumn("-").setCellRenderer(new IconRenderer());
-                table.getColumn("-").setCellEditor(new IconEditor(table, model));
-                table.getColumnModel().getColumn(0).setMaxWidth(40);
-                table.getColumnModel().getColumn(4).setMaxWidth(60);
-
-                // Устанавливаем высоту строки последней строки на 1 пиксель
-                int lastRowIndex = table.getRowCount() - 1;
-                int rowHeight = 1;
-                table.setRowHeight(lastRowIndex, rowHeight);
-
-                // Убираем отступы между строками
-                table.setRowMargin(-1);
-
-                JScrollPane scrollPane = new JScrollPane(table);
-                panel.add(scrollPane, BorderLayout.CENTER);
-
-                JPanel inputPanel = new JPanel();
-                inputPanel.setLayout(new GridLayout(1, 4, 5, 0));
-
-                JTextField nameField = new JTextField();
-                inputPanel.add(labeledField("Название", nameField));
-
-                JTextField valueField = new JTextField();
-                inputPanel.add(labeledField("Значение", valueField));
-
-                JTextField sectionField = new JTextField();
-                inputPanel.add(labeledField("Секция", sectionField));
-
-                JButton addButton = new JButton("Добавить параметр");
-                addButton.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent actionEvent) {
-                        String name = nameField.getText();
-                        String value = valueField.getText();
-                        String section = sectionField.getText();
-                        if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
-                            model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                            parameters.put(name, new Parameter(value, section, true));
-                            nameField.setText("");
-                            valueField.setText("");
-                            sectionField.setText("");
-                        }
-                    }
-                });
-
-                inputPanel.add(addButton);
-
-                // Добавляем кнопку "Специальные параметры"
-                JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
-                specialParametersButton.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        JCheckBox apiDataCheckBox = new JCheckBox("API_DATA");
-                        apiDataCheckBox.setSelected(getPrefState(PREF_API_DATA));
-                        apiDataCheckBox.addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                    // Создаем модель таблицы
+                    DefaultTableModel model = new DefaultTableModel(data, columnNames) {
+                        @Override
+                        public Class<?> getColumnClass(int columnIndex) {
+                            switch (columnIndex) {
+                                case 0:
+                                    return Boolean.class;
+                                case 1:
+                                case 2:
+                                case 3:
+                                case 4:
+                                    return Object.class;
+                                default:
+                                    return super.getColumnClass(columnIndex);
                             }
-                        });
-                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
+                        }
 
-                        JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
-                        testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
-                        testFilesCheckBox.addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                        @Override
+                        public void removeRow(int row) {
+                            if (getRowCount() > 1) {
+                                super.removeRow(row);
                             }
-                        });
-                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
+                        }
+                    };
 
-                        JCheckBox checkWhatConfigCheckBox = new JCheckBox("CHECK_WHAT_CONFIG");
-                        checkWhatConfigCheckBox.setSelected(getPrefState(PREF_CHECK_WHAT_CONFIG));
-                        checkWhatConfigCheckBox.addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                    // Добавляем пустую строку в конец модели таблицы
+                    model.addRow(new Object[]{null, null, null, null, null});
+
+                    JTable table = new JTable(model);
+                    table.getTableHeader().setReorderingAllowed(false);
+                    table.getColumn("-").setCellRenderer(new IconRenderer());
+                    table.getColumn("-").setCellEditor(new IconEditor(table, model));
+                    table.getColumnModel().getColumn(0).setMaxWidth(40);
+                    table.getColumnModel().getColumn(4).setMaxWidth(60);
+
+                    // Создаем вертикальный отступ
+                    Component verticalStrut = Box.createVerticalStrut(5);
+
+                    // Устанавливаем высоту строки последней строки на 1 пиксель
+                    int lastRowIndex = table.getRowCount() - 1;
+                    table.setRowHeight(lastRowIndex, 1);
+
+                    JScrollPane scrollPane = new JScrollPane(table);
+                    panel.add(scrollPane, BorderLayout.NORTH);
+                    panel.add(verticalStrut, BorderLayout.CENTER);
+
+                    JPanel inputPanel = new JPanel();
+                    inputPanel.setLayout(new GridLayout(1, 4, 5, 0));
+
+                    JTextField nameField = new JTextField();
+                    inputPanel.add(labeledField("Название", nameField));
+
+                    JTextField valueField = new JTextField();
+                    inputPanel.add(labeledField("Значение", valueField));
+
+                    JTextField sectionField = new JTextField();
+                    inputPanel.add(labeledField("Секция", sectionField));
+
+                    JButton addButton = new JButton("Добавить параметр");
+                    addButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent actionEvent) {
+                            String name = nameField.getText();
+                            String value = valueField.getText();
+                            String section = sectionField.getText();
+                            if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
+                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                                parameters.put(name, new Parameter(value, section, true));
+                                nameField.setText("");
+                                valueField.setText("");
+                                sectionField.setText("");
                             }
-                        });
-                        checkWhatConfigCheckBox.setToolTipText("<html><b>CHECK_WHAT_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+                        }
+                    });
 
-                        JPanel checkBoxPanel = new JPanel(new GridLayout(3, 1));
-                        checkBoxPanel.add(apiDataCheckBox);
-                        checkBoxPanel.add(testFilesCheckBox);
-                        checkBoxPanel.add(checkWhatConfigCheckBox);
+                    inputPanel.add(addButton);
 
-                        JOptionPane.showConfirmDialog(
-                                null, checkBoxPanel, "Выберите специальные параметры",
-                                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE);
+                    // Добавляем кнопку "Специальные параметры"
+                    JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
+                    specialParametersButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            if (specialParametersDialogOpen == null || !specialParametersDialogOpen.isShowing()) {
+                                JCheckBox apiDataCheckBox = new JCheckBox("API_DATA");
+                                apiDataCheckBox.setSelected(getPrefState(PREF_API_DATA));
+                                apiDataCheckBox.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                                    }
+                                });
+                                apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
+
+                                JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
+                                testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
+                                testFilesCheckBox.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                                    }
+                                });
+                                testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
+
+                                JCheckBox checkWhatConfigCheckBox = new JCheckBox("CHECK_WHAT_CONFIG");
+                                checkWhatConfigCheckBox.setSelected(getPrefState(PREF_CHECK_WHAT_CONFIG));
+                                checkWhatConfigCheckBox.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                                    }
+                                });
+                                checkWhatConfigCheckBox.setToolTipText("<html><b>CHECK_WHAT_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+                                JDialog specialParametersDialog = new JDialog();
+
+                                JButton saveButton = new JButton("ОК");
+                                saveButton.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                                        setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                                        setPrefState(PREF_CHECK_WHAT_CONFIG, checkWhatConfigCheckBox.isSelected());
+                                        specialParametersDialog.dispose();
+                                    }
+                                });
+
+                                JPanel checkBoxPanel = new JPanel(new GridBagLayout());
+                                checkBoxPanel.setBorder(new EmptyBorder(10, 10, 5, 10));
+                                GridBagConstraints gbc = new GridBagConstraints();
+                                gbc.gridwidth = GridBagConstraints.REMAINDER;
+                                gbc.fill = GridBagConstraints.HORIZONTAL;
+                                checkBoxPanel.add(apiDataCheckBox, gbc);
+                                checkBoxPanel.add(testFilesCheckBox, gbc);
+                                checkBoxPanel.add(checkWhatConfigCheckBox, gbc);
+                                checkBoxPanel.add(new JPanel(), gbc);
+                                checkBoxPanel.add(saveButton, gbc);
+
+                                // Создаем диалог для отображения панели
+                                specialParametersDialog.setModalityType(Dialog.ModalityType.MODELESS);
+                                specialParametersDialog.setTitle("Специальные параметры");
+                                specialParametersDialog.getContentPane().add(checkBoxPanel);
+                                specialParametersDialog.pack();
+                                specialParametersDialog.setPreferredSize(new Dimension(500, 200));  // Set preferred size.
+                                specialParametersDialog.setLocationRelativeTo(null);
+
+                                // Определение действия при закрытии окна
+                                specialParametersDialog.addWindowListener(new WindowAdapter() {
+                                    @Override
+                                    public void windowClosed(WindowEvent e) {
+                                        specialParametersDialogOpen = null;
+                                    }
+                                });
+
+                                specialParametersDialogOpen = specialParametersDialog;
+                                specialParametersDialog.setVisible(true);
+                            } else {
+                                specialParametersDialogOpen.toFront();
+                            }
+                        }
+                    });
+
+                    inputPanel.add(specialParametersButton);
+
+                    panel.add(inputPanel, BorderLayout.SOUTH);
+
+                    // Создание нового JDialog
+                    JDialog settingsDialog = new JDialog();
+
+                    // Устанавливаем немодальность
+                    settingsDialog.setModalityType(Dialog.ModalityType.MODELESS);
+
+                    // Создание панели с кнопками OK и Cancel
+                    JPanel buttonPanel = new JPanel();
+                    JButton okButton = new JButton("OK");
+                    JButton cancelButton = new JButton("Cancel");
+                    buttonPanel.add(okButton);
+                    buttonPanel.add(cancelButton);
+
+                    // Добавление панели с кнопками в нижнюю часть диалогового окна
+                    settingsDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+                    // Добавление вашей основной панели в центральную часть диалогового окна
+                    settingsDialog.add(panel, BorderLayout.CENTER);
+
+                    // Получаем панель содержимого и устанавливаем границу
+                    Container contentPane = settingsDialog.getContentPane();
+                    ((JComponent) contentPane).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+                    // Определение поведения при нажатии кнопки OK
+                    okButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            parameters.clear();
+                            for (int j = 0; j < model.getRowCount(); j++) {
+                                Boolean active = (Boolean) model.getValueAt(j, 0);
+                                String name = (String) model.getValueAt(j, 1);
+                                String value = (String) model.getValueAt(j, 2);
+                                String section = (String) model.getValueAt(j, 3);
+                                if (name != null & value != null & section != null) {
+                                    parameters.put(name, new Parameter(value, section, active));
+                                }
+                            }
+                            Preferences preferences = Preferences.userNodeForPackage(getClass());
+                            Gson gson = new Gson();
+                            preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
+                            saveConfigParameters(project);
+                            settingsDialog.dispose();
+                        }
+                    });
+
+                    // Определение поведения при нажатии кнопки Cancel
+                    cancelButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            settingsDialog.dispose();
+                        }
+                    });
+
+                    // Позиционирование диалогового окна
+                    settingsDialog.pack();
+                    Window activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+                    if (activeWindow != null) {
+                        int x = activeWindow.getX() + (activeWindow.getWidth() - settingsDialog.getWidth()) / 2;
+                        int y = activeWindow.getY() + (activeWindow.getHeight() - settingsDialog.getHeight()) / 2;
+                        settingsDialog.setLocation(x, y);
+                    } else {
+                        settingsDialog.setLocationRelativeTo(null);
                     }
-                });
 
-                inputPanel.add(specialParametersButton);
+                    // Определение действия при закрытии окна
+                    settingsDialog.addWindowListener(new WindowAdapter() {
+                        @Override
+                        public void windowClosed(WindowEvent e) {
+                            settingsDialogOpen = null;
+                        }
+                    });
 
-                panel.add(inputPanel, BorderLayout.SOUTH);
-
-                int result = JOptionPane.showConfirmDialog(null, panel, "Настройки",
-                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-                if (result == JOptionPane.OK_OPTION) {
-                    parameters.clear();
-                    for (int j = 0; j < model.getRowCount(); j++) {
-                        Boolean active = (Boolean) model.getValueAt(j, 0);
-                        String name = (String) model.getValueAt(j, 1);
-                        String value = (String) model.getValueAt(j, 2);
-                        String section = (String) model.getValueAt(j, 3);
-                        if (name != null & value != null & section != null) {
-                            parameters.put(name, new Parameter(value, section, active));
-                        }                    }
-                    Preferences preferences = Preferences.userNodeForPackage(getClass());
-                    Gson gson = new Gson();
-                    preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
-                    saveConfigParameters(project);
+                    // Отображение диалогового окна
+                    settingsDialogOpen = settingsDialog;
+                    settingsDialog.setVisible(true);
+                } else {
+                    settingsDialogOpen.toFront();
                 }
             }
         });
