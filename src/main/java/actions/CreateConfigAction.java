@@ -302,6 +302,8 @@ public class CreateConfigAction extends AnAction {
 
                     inputPanel.add(addButton);
 
+                    JDialog settingsDialog = new JDialog();
+
                     // Добавляем кнопку "Специальные параметры"
                     JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
                     specialParametersButton.addActionListener(new ActionListener() {
@@ -337,7 +339,7 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 });
                                 checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
-                                JDialog specialParametersDialog = new JDialog();
+                                JDialog specialParametersDialog = new JDialog(settingsDialog);
 
                                 JButton saveButton = new JButton("ОК");
                                 saveButton.addActionListener(new ActionListener() {
@@ -366,8 +368,10 @@ public class CreateConfigAction extends AnAction {
                                 specialParametersDialog.setTitle("Специальные параметры");
                                 specialParametersDialog.getContentPane().add(checkBoxPanel);
                                 specialParametersDialog.pack();
-                                specialParametersDialog.setPreferredSize(new Dimension(500, 200));  // Set preferred size.
-                                specialParametersDialog.setLocationRelativeTo(null);
+                                specialParametersDialog.setPreferredSize(new Dimension(500, 200));
+
+                                // Чтобы появился в центре родительского окна
+                                specialParametersDialog.setLocationRelativeTo(settingsDialog);
 
                                 // Определение действия при закрытии окна
                                 specialParametersDialog.addWindowListener(new WindowAdapter() {
@@ -388,9 +392,6 @@ public class CreateConfigAction extends AnAction {
                     inputPanel.add(specialParametersButton);
 
                     panel.add(inputPanel, BorderLayout.SOUTH);
-
-                    // Создание нового JDialog
-                    JDialog settingsDialog = new JDialog();
 
                     // Устанавливаем немодальность
                     settingsDialog.setModalityType(Dialog.ModalityType.MODELESS);
