@@ -398,8 +398,8 @@ public class CreateConfigAction extends AnAction {
 
                     // Создание панели с кнопками OK и Cancel
                     JPanel buttonPanel = new JPanel();
-                    JButton okButton = new JButton("OK");
-                    JButton cancelButton = new JButton("Cancel");
+                    JButton okButton = new JButton("Сохранить");
+                    JButton cancelButton = new JButton("Закрыть");
                     buttonPanel.add(okButton);
                     buttonPanel.add(cancelButton);
 
