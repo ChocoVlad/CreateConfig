@@ -2,6 +2,12 @@ package actions;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.intellij.execution.ExecutionException;
+import com.intellij.execution.RunManager;
+import com.intellij.execution.RunnerAndConfigurationSettings;
+import com.intellij.execution.executors.DefaultDebugExecutor;
+import com.intellij.execution.executors.DefaultRunExecutor;
+import com.intellij.execution.runners.ExecutionEnvironmentBuilder;
 import com.intellij.icons.AllIcons;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -18,15 +24,13 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -102,8 +106,65 @@ public class CreateConfigAction extends AnAction {
             if (!configFile.isDirectory()) {
                 // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
-                // Создаем пункт меню с именем файла и иконкой
-                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.General.ArrowRight);
+
+                // Создаем вложенное меню с именем файла и иконкой
+                JMenu submenu = new JMenu(fileName);
+                submenu.setIcon(AllIcons.General.ArrowRight);
+                String currentFileName = currentFile.getName();
+
+                if(currentFileName.startsWith("test_") & currentFileName.endsWith(".py")) {
+                    // Создаем пункты меню для Run и Debug
+                    JMenuItem runItem = new JMenuItem("Run");
+                    JMenuItem debugItem = new JMenuItem("Debug");
+
+                    // Добавляем слушатели к пунктам меню Run и Debug
+                    runItem.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            // Получаем экземпляр RunnerAndConfigurationSettings
+                            RunnerAndConfigurationSettings runConfigurationSettings = RunManager.getInstance(project).findConfigurationByName("Python tests in " + currentFileName);
+
+                            // Если конфигурация запуска не найдена, выходим из метода
+                            if (runConfigurationSettings == null) return;
+
+                            // Пытаемся запустить конфигурацию запуска
+                            try {
+                                ExecutionEnvironmentBuilder.create(DefaultRunExecutor.getRunExecutorInstance(), runConfigurationSettings)
+                                        .buildAndExecute();
+                            } catch (ExecutionException ex) {
+                                ex.printStackTrace();
+                            }
+
+                            // Закрываем всплывающее меню
+                            popupMenu.setVisible(false);
+                        }
+                    });
+                    debugItem.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            // Получаем экземпляр RunnerAndConfigurationSettings
+                            RunnerAndConfigurationSettings runConfigurationSettings = RunManager.getInstance(project).findConfigurationByName("Python tests in " + currentFileName);
+
+                            // Если конфигурация запуска не найдена, выходим из метода
+                            if (runConfigurationSettings == null) return;
+
+                            // Пытаемся запустить конфигурацию запуска
+                            try {
+                                ExecutionEnvironmentBuilder.create(DefaultDebugExecutor.getDebugExecutorInstance(), runConfigurationSettings)
+                                        .buildAndExecute();
+                            } catch (ExecutionException ex) {
+                                ex.printStackTrace();
+                            }
+
+                            // Закрываем всплывающее меню
+                            popupMenu.setVisible(false);
+                        }
+                    });
+
+                    // Добавляем пункты меню Run и Debug в вложенное меню
+                    submenu.add(runItem);
+                    submenu.add(debugItem);
+                }
 
                 // Проверяем наличие файла config.ini
                 VirtualFile configOldFile = parentDirectory.findChild("config.ini");
@@ -117,9 +178,9 @@ public class CreateConfigAction extends AnAction {
                                 Matcher matcher = Pattern.compile("Файл конфигурации скопирован из: (.*)").matcher(line);
                                 if (matcher.find()) {
                                     String copiedFromFile = matcher.group(1);
-                                        if (copiedFromFile.equals(configFile.getName())) {
-                                            menuItem.setIcon(AllIcons.General.InspectionsOK); // Устанавливаем иконку для файла, если найден соответствующий файл в списке
-                                            break;
+                                    if (copiedFromFile.equals(configFile.getName())) {
+                                        submenu.setIcon(AllIcons.General.InspectionsOK); // Устанавливаем иконку для файла, если найден соответствующий файл в списке
+                                        break;
                                     }
                                 }
                                 break;
@@ -131,9 +192,9 @@ public class CreateConfigAction extends AnAction {
                 }
 
                 // Добавляем слушатель на пункт меню
-                menuItem.addActionListener(new ActionListener() {
+                submenu.addMouseListener(new MouseAdapter() {
                     @Override
-                    public void actionPerformed(ActionEvent e) {
+                    public void mouseClicked(MouseEvent e) {
                         // Создаем приложение
                         Application application = ApplicationManager.getApplication();
                         // Запускаем операцию записи
@@ -186,6 +247,7 @@ public class CreateConfigAction extends AnAction {
                                         Notifications.Bus.notify(notification);
                                     }
                                 }
+                                popupMenu.setVisible(false);
                             } catch (IOException ex) {
                                 // Выводим ошибку в консоль
                                 ex.printStackTrace();
@@ -194,7 +256,7 @@ public class CreateConfigAction extends AnAction {
                     }
                 });
                 // Добавляем пункт меню в список компонентов меню
-                menuComponents.add(menuItem);
+                menuComponents.add(submenu);
             }
         }
 
