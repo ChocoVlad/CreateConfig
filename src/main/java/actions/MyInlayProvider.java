@@ -36,6 +36,17 @@ public class MyInlayProvider {
 
                             // Просматриваем все файлы .ini в папке config
                             List<String> results = new ArrayList<>();
+
+                            // Если текущий файл не является config.ini, то мы добавляем параметр из config.ini
+                            if (!currentFilePath.endsWith("config.ini")) {
+                                File configFile = new File(new File(currentFilePath).getParent() + File.separator + "config.ini");
+                                String value = findValueForKey(configFile, wordAtCursor);
+                                if (value != null) {
+                                    results.add("<b>config.ini</b> : " + value);
+                                    results.add("");
+                                }
+                            }
+
                             File configFolder = new File(configFolderPath);
                             File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".ini"));
 
@@ -49,6 +60,7 @@ public class MyInlayProvider {
                                     }
                                 }
                             }
+
                             if (!results.isEmpty()) {
                                 editor.getContentComponent().setToolTipText("<html>" + String.join("<br>", results) + "</html>");
                             } else {
