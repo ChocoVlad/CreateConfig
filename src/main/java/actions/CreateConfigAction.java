@@ -47,6 +47,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
+    private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP_PARAMETER";
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
@@ -339,6 +340,16 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 });
                                 checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+
+                                JCheckBox checkTooltipParameterBox = new JCheckBox("TOOLTIP_PARAMETER");
+                                checkTooltipParameterBox.setSelected(getPrefState(PREF_TOOLTIP_PARAMETER));
+                                checkTooltipParameterBox.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
+                                    }
+                                });
+                                checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP_PARAMETER:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
                                 JDialog specialParametersDialog = new JDialog(settingsDialog);
 
                                 JButton saveButton = new JButton("ОК");
@@ -348,6 +359,7 @@ public class CreateConfigAction extends AnAction {
                                         setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
                                         setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
                                         setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
+                                        setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
                                         specialParametersDialog.dispose();
                                     }
                                 });
@@ -360,6 +372,7 @@ public class CreateConfigAction extends AnAction {
                                 checkBoxPanel.add(apiDataCheckBox, gbc);
                                 checkBoxPanel.add(testFilesCheckBox, gbc);
                                 checkBoxPanel.add(checkConfigCheckBox, gbc);
+                                checkBoxPanel.add(checkTooltipParameterBox, gbc);
                                 checkBoxPanel.add(new JPanel(), gbc);
                                 checkBoxPanel.add(saveButton, gbc);
 

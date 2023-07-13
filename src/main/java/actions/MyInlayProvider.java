@@ -8,56 +8,56 @@ import com.intellij.openapi.editor.event.EditorMouseMotionAdapter;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
+import org.ini4j.Ini;
 
-import java.awt.*;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
 import java.util.List;
 import java.util.ArrayList;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
+import java.util.prefs.Preferences;
 
 public class MyInlayProvider {
     public MyInlayProvider() {
         EditorFactory.getInstance().getEventMulticaster().addEditorMouseMotionListener(new EditorMouseMotionAdapter() {
             @Override
             public void mouseMoved(@NotNull EditorMouseEvent event) {
-                Editor editor = event.getEditor();
-                LogicalPosition logicalPosition = editor.xyToLogicalPosition(event.getMouseEvent().getPoint());
-                int offset = editor.logicalPositionToOffset(logicalPosition);
-                String wordAtCursor = getWordAt(editor.getDocument().getText(), offset);
+                Preferences preferences = Preferences.userNodeForPackage(actions.CreateConfigAction.class);
+                if (preferences.getBoolean("TOOLTIP_PARAMETER", false)) {
+                    Editor editor = event.getEditor();
+                    LogicalPosition logicalPosition = editor.xyToLogicalPosition(event.getMouseEvent().getPoint());
+                    int offset = editor.logicalPositionToOffset(logicalPosition);
+                    String wordAtCursor = getWordAt(editor.getDocument().getText(), offset);
 
-                if (wordAtCursor != null) {
-                    // Получаем путь к папке config
-                    VirtualFile currentFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
-                    if (currentFile != null) {
-                        String currentFilePath = currentFile.getPath();
-                        String configFolderPath = new File(currentFilePath).getParent() + File.separator + "config";
+                    if (wordAtCursor != null) {
+                        // Получаем путь к папке config
+                        VirtualFile currentFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
+                        if (currentFile != null) {
+                            String currentFilePath = currentFile.getPath();
+                            String configFolderPath = new File(currentFilePath).getParent() + File.separator + "config";
 
-                        // Просматриваем все файлы .ini в папке config
-                        List<String> results = new ArrayList<>();
-                        File configFolder = new File(configFolderPath);
-                        File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".ini"));
+                            // Просматриваем все файлы .ini в папке config
+                            List<String> results = new ArrayList<>();
+                            File configFolder = new File(configFolderPath);
+                            File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".ini"));
 
-                        if (files != null) {
-                            for (File file : files) {
-                                String filename = file.getName();
-                                String fileNameWithoutExtension = filename.substring(0, filename.lastIndexOf('.'));
-                                String value = findValueForKey(file, wordAtCursor);
-                                if (value != null) {
-                                    results.add("<b>" + fileNameWithoutExtension + "</b> : " + value);
+                            if (files != null) {
+                                for (File file : files) {
+                                    String filename = file.getName();
+                                    String fileNameWithoutExtension = filename.substring(0, filename.lastIndexOf('.'));
+                                    String value = findValueForKey(file, wordAtCursor);
+                                    if (value != null) {
+                                        results.add("<b>" + fileNameWithoutExtension + "</b> : " + value);
+                                    }
                                 }
                             }
+                            if (!results.isEmpty()) {
+                                editor.getContentComponent().setToolTipText("<html>" + String.join("<br>", results) + "</html>");
+                            } else {
+                                editor.getContentComponent().setToolTipText(null);
+                            }
                         }
-                        if (!results.isEmpty()) {
-                            editor.getContentComponent().setToolTipText("<html>" + String.join("<br>", results) + "</html>");
-                        } else {
-                            editor.getContentComponent().setToolTipText(null);
-                        }
+                    } else {
+                        editor.getContentComponent().setToolTipText(null);
                     }
-                } else {
-                    editor.getContentComponent().setToolTipText(null);
                 }
             }
         });
@@ -83,11 +83,14 @@ public class MyInlayProvider {
     }
 
     private String findValueForKey(File file, String key) {
-        Properties properties = new Properties();
-        try (FileInputStream inputStream = new FileInputStream(file);
-             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-            return properties.getProperty(key);
+        try {
+            Ini ini = new Ini(file);
+            for (String sectionName : ini.keySet()) {
+                Ini.Section section = ini.get(sectionName);
+                if (section.containsKey(key)) {
+                    return section.get(key);
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
