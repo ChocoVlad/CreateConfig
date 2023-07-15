@@ -7,10 +7,11 @@ import com.intellij.openapi.editor.event.EditorMouseEvent;
 import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.ini4j.Ini;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.*;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.prefs.Preferences;
@@ -58,7 +59,6 @@ public class MyInlayProvider {
                 String value = findValueForKey(configFile, wordAtCursor);
                 if (value != null) {
                     results.add("<b>config.ini</b> : " + value);
-                    results.add("");
                 }
             }
 
@@ -71,13 +71,14 @@ public class MyInlayProvider {
                     String fileNameWithoutExtension = filename.substring(0, filename.lastIndexOf('.'));
                     String value = findValueForKey(file, wordAtCursor);
                     if (value != null) {
-                        results.add("<ul><li><b>" + fileNameWithoutExtension + "</b> : " + value + "</li></ul>");
+                        results.add("<b>" + fileNameWithoutExtension + "</b> : " + value);
                     }
                 }
             }
 
             if (!results.isEmpty()) {
-                editor.getContentComponent().setToolTipText("<html>" + String.join("<br>", results) + "</html>");
+                String tooltip = "<html><center><b>" + wordAtCursor + "</b></center>" + "<hr>" + String.join("<br>", results) + "</html>";
+                editor.getContentComponent().setToolTipText(tooltip);
             } else {
                 editor.getContentComponent().setToolTipText(null);
             }
@@ -106,15 +107,16 @@ public class MyInlayProvider {
     }
 
     private String findValueForKey(File file, String key) {
-        try {
-            Ini ini = new Ini(file);
-            for (String sectionName : ini.keySet()) {
-                Ini.Section section = ini.get(sectionName);
-                if (section.containsKey(key.toLowerCase())) {
-                    return section.get(key.toLowerCase());
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+            String line;
+            Pattern pattern = Pattern.compile("^\\s*" + Pattern.quote(key) + "\\s*=\\s*(.*)$");
+            while ((line = br.readLine()) != null) {
+                Matcher matcher = pattern.matcher(line);
+                if (matcher.find()) {
+                    return matcher.group(1);
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
         return null;
