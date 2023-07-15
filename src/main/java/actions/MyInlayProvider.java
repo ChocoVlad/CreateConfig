@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.prefs.Preferences;
 
+/**
+ * Предоставляет встраиваемые элементы для параметров конфигурации.
+ */
 public class MyInlayProvider {
     public MyInlayProvider() {
         EditorFactory.getInstance().getEventMulticaster().addEditorMouseMotionListener(new EditorMouseMotionListener() {
@@ -45,15 +48,19 @@ public class MyInlayProvider {
         });
     }
 
+    /**
+     * Обрабатывает текущий файл.
+     * @param editor - текущий экземпляр редактора
+     * @param currentFile - файл под курсором
+     * @param wordAtCursor - слово под курсором
+     */
     private void handleCurrentFile(Editor editor, VirtualFile currentFile, String wordAtCursor) {
         try {
             String currentFilePath = currentFile.getPath();
             String configFolderPath = new File(currentFilePath).getParent() + File.separator + "config";
 
-            // Просматриваем все файлы .ini в папке config
             List<String> results = new ArrayList<>();
 
-            // Если текущий файл не является config.ini, то мы добавляем параметр из config.ini
             if (!currentFilePath.endsWith("config.ini")) {
                 File configFile = new File(new File(currentFilePath).getParent() + File.separator + "config.ini");
                 String value = findValueForKey(configFile, wordAtCursor);
@@ -87,6 +94,12 @@ public class MyInlayProvider {
         }
     }
 
+    /**
+     * Получает слово на конкретном смещении.
+     * @param text - текст, в котором ищется слово
+     * @param offset - смещение, с которого начинается поиск
+     * @return - найденное слово по смещению или null, если не найдено
+     */
     private String getWordAt(String text, int offset) {
         int startOffset = offset;
         int endOffset = offset;
@@ -106,6 +119,12 @@ public class MyInlayProvider {
         }
     }
 
+    /**
+     * Находит значение для конкретного ключа в файле.
+     * @param file - файл, в котором ищется ключ
+     * @param key - ключ, для которого ищется значение
+     * @return - найденное значение для ключа или null, если не найдено
+     */
     private String findValueForKey(File file, String key) {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             String line;
