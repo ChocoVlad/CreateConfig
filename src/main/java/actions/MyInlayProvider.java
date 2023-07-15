@@ -29,7 +29,6 @@ public class MyInlayProvider {
                         String wordAtCursor = getWordAt(editor.getDocument().getText(), offset);
 
                         if (wordAtCursor != null) {
-                            // Try to retrieve the current file
                             VirtualFile currentFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
                             if (currentFile != null) {
                                 handleCurrentFile(editor, currentFile, wordAtCursor);
@@ -72,7 +71,7 @@ public class MyInlayProvider {
                     String fileNameWithoutExtension = filename.substring(0, filename.lastIndexOf('.'));
                     String value = findValueForKey(file, wordAtCursor);
                     if (value != null) {
-                        results.add("<b>" + fileNameWithoutExtension + "</b> : " + value);
+                        results.add("<ul><li><b>" + fileNameWithoutExtension + "</b> : " + value + "</li></ul>");
                     }
                 }
             }
@@ -111,8 +110,8 @@ public class MyInlayProvider {
             Ini ini = new Ini(file);
             for (String sectionName : ini.keySet()) {
                 Ini.Section section = ini.get(sectionName);
-                if (section.containsKey(key)) {
-                    return section.get(key);
+                if (section.containsKey(key.toLowerCase())) {
+                    return section.get(key.toLowerCase());
                 }
             }
         } catch (Exception e) {
