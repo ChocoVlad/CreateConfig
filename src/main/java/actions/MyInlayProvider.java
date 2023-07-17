@@ -1,11 +1,13 @@
 package actions;
 
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.event.EditorMouseEvent;
 import com.intellij.openapi.editor.event.EditorMouseMotionListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
@@ -19,13 +21,15 @@ import java.util.prefs.Preferences;
 /**
  * Предоставляет встраиваемые элементы для параметров конфигурации.
  */
-public class MyInlayProvider {
+public class MyInlayProvider implements Disposable {
+    private final Disposable myDisposable = Disposer.newDisposable();
+
     public MyInlayProvider() {
         EditorFactory.getInstance().getEventMulticaster().addEditorMouseMotionListener(new EditorMouseMotionListener() {
             @Override
             public void mouseMoved(@NotNull EditorMouseEvent event) {
                 try {
-                    Preferences preferences = Preferences.userNodeForPackage(actions.CreateConfigAction.class);
+                    Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
                     if (preferences.getBoolean("TOOLTIP_PARAMETER", false)) {
                         Editor editor = event.getEditor();
                         LogicalPosition logicalPosition = editor.xyToLogicalPosition(event.getMouseEvent().getPoint());
@@ -45,7 +49,12 @@ public class MyInlayProvider {
                     e.printStackTrace();
                 }
             }
-        });
+        }, myDisposable);
+    }
+
+    @Override
+    public void dispose() {
+        Disposer.dispose(myDisposable);
     }
 
     /**
