@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,7 +48,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
-    private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP_PARAMETER";
+    private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP";
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
@@ -341,15 +342,15 @@ public class CreateConfigAction extends AnAction {
                                 });
                                 checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
 
-                                JCheckBox checkTooltipParameterBox = new JCheckBox("TOOLTIP_PARAMETER");
-                                checkTooltipParameterBox.setSelected(getPrefState(PREF_TOOLTIP_PARAMETER));
+                                JCheckBox checkTooltipParameterBox = new JCheckBox("TOOLTIP");
+                                checkTooltipParameterBox.setSelected(getPrefState(PREF_TOOLTIP_PARAMETER, true));
                                 checkTooltipParameterBox.addActionListener(new ActionListener() {
                                     @Override
                                     public void actionPerformed(ActionEvent e) {
                                         setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
                                     }
                                 });
-                                checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP_PARAMETER:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
+                                checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
                                 JDialog specialParametersDialog = new JDialog(settingsDialog);
 
                                 JButton saveButton = new JButton("ОК");
@@ -618,6 +619,11 @@ public class CreateConfigAction extends AnAction {
     private boolean getPrefState(String prefName) {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         return preferences.getBoolean(prefName, false);
+    }
+
+    private boolean getPrefState(String prefName, boolean defaultValue) {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        return preferences.getBoolean(prefName, defaultValue);
     }
 
     // Метод установки состояния настройки

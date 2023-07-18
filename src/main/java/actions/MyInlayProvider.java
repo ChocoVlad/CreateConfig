@@ -30,7 +30,7 @@ public class MyInlayProvider implements Disposable {
             public void mouseMoved(@NotNull EditorMouseEvent event) {
                 try {
                     Preferences preferences = Preferences.userNodeForPackage(CreateConfigAction.class);
-                    if (preferences.getBoolean("TOOLTIP_PARAMETER", false)) {
+                    if (preferences.getBoolean("TOOLTIP", true)) {
                         Editor editor = event.getEditor();
                         LogicalPosition logicalPosition = editor.xyToLogicalPosition(event.getMouseEvent().getPoint());
                         int offset = editor.logicalPositionToOffset(logicalPosition);
