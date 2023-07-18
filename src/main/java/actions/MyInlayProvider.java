@@ -66,7 +66,13 @@ public class MyInlayProvider implements Disposable {
     private void handleCurrentFile(Editor editor, VirtualFile currentFile, String wordAtCursor) {
         try {
             String currentFilePath = currentFile.getPath();
-            String configFolderPath = new File(currentFilePath).getParent() + File.separator + "config";
+            String configFolderParent = new File(currentFilePath).getParent();
+            String configFolderPath = "";
+            if (configFolderParent.endsWith("config")) {
+                configFolderPath = configFolderParent;
+            } else {
+                configFolderPath = configFolderParent + File.separator + "config";
+            }
 
             List<String> results = new ArrayList<>();
 
