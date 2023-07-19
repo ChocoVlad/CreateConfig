@@ -13,27 +13,33 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description>
         <![CDATA[
-    "CreateConfig" is a plugin that allows you to easily create and install configuration files in your project.
+        <p>"CreateConfig" is a plugin that allows you to easily create and install configuration files in your project.</p>
 
-    Key features:
-    - Create and install configuration files in your project.
-    - Support for customizable settings.
+        <p><strong>Key features:</strong></p>
+        <ul>
+            <li>Create and install configuration files in your project.</li>
+            <li>Support for customizable settings.</li>
+        </ul>
 
-    Usage:
-    1. Open your project.
-    2. Click "Create Config" from the toolbar.
-    3. Select the file in which you want to install the configuration.
-    4. In the popup menu, select one of the available configuration files.
+        <p><strong>Usage:</strong></p>
+        <ol>
+            <li>Open your project.</li>
+            <li>Click "Create Config" from the toolbar.</li>
+            <li>Select the file in which you want to install the configuration.</li>
+            <li>In the popup menu, select one of the available configuration files.</li>
+        </ol>
 
-    Set configuration:
-    1. Open your project.
-    2. Click "Create Config" from the toolbar.
-    3. Select "Settings" in the popup menu.
-    4. Select customization options.
-    4. Click "OK" to install the configuration.
+        <p><strong>Set configuration:</strong></p>
+        <ol>
+            <li>Open your project.</li>
+            <li>Click "Create Config" from the toolbar.</li>
+            <li>Select "Settings" in the popup menu.</li>
+            <li>Select customization options.</li>
+            <li>Click "OK" to install the configuration.</li>
+        </ol>
 
-    The "CreateConfig" plugin simplifies the process of creating and installing configuration files in projects, enhancing development productivity and providing greater flexibility in project setup.
-    ]]>
+        <p>The "CreateConfig" plugin simplifies the process of creating and installing configuration files in projects, enhancing development productivity and providing greater flexibility in project setup.</p>
+        ]]>
     </description>
 
     <!-- Minimum version of IntelliJ Platform -->
