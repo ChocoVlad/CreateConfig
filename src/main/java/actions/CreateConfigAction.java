@@ -261,6 +261,33 @@ public class CreateConfigAction extends AnAction {
                     table.getColumn("-").setCellEditor(new IconEditor(table, model));
                     table.getColumnModel().getColumn(0).setMaxWidth(40);
                     table.getColumnModel().getColumn(4).setMaxWidth(60);
+                    table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JComboBox()) {
+                        @Override
+                        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+                            String cellValue = (String) value;
+                            String[] items = cellValue.split("%n");
+                            JComboBox comboBox = (JComboBox) editorComponent;
+                            comboBox.removeAllItems();
+                            for (String item : items) {
+                                comboBox.addItem(item);
+                            }
+                            return super.getTableCellEditorComponent(table, value, isSelected, row, column);
+                        }
+
+                        @Override
+                        public Object getCellEditorValue() {
+                            String selectedValue = (String) super.getCellEditorValue();
+                            JComboBox comboBox = (JComboBox) editorComponent;
+                            StringBuilder cellValue = new StringBuilder(selectedValue);
+                            for (int i = 0; i < comboBox.getItemCount(); i++) {
+                                String item = (String) comboBox.getItemAt(i);
+                                if (!item.equals(selectedValue)) {
+                                    cellValue.append("%n").append(item);
+                                }
+                            }
+                            return cellValue.toString();
+                        }
+                    });
 
                     // Создаем вертикальный отступ
                     Component verticalStrut = Box.createVerticalStrut(5);
@@ -585,6 +612,10 @@ public class CreateConfigAction extends AnAction {
                                 ini.add(section);
                             }
                             if (!StringUtil.isEmptyOrSpaces(value)) {
+                                // Если значение содержит "%n", выберите первый элемент после разделения
+                                if (value.contains("%n")) {
+                                    value = value.split("%n")[0];
+                                }
                                 ini.get(section).put(key, value);
                             }
                         }
@@ -767,6 +798,12 @@ public class CreateConfigAction extends AnAction {
         @Override
         public void addCellEditorListener(CellEditorListener l) {
             super.addCellEditorListener(l);
+        }
+    }
+
+    class ComboBoxCellEditor extends DefaultCellEditor {
+        public ComboBoxCellEditor(String[] items) {
+            super(new JComboBox(items));
         }
     }
 }
