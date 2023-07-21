@@ -20,6 +20,9 @@ import org.ini4j.Wini;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
+import javax.swing.plaf.basic.BasicComboBoxUI;
+import javax.swing.plaf.basic.BasicComboPopup;
+import javax.swing.plaf.basic.ComboPopup;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
@@ -260,37 +263,38 @@ public class CreateConfigAction extends AnAction {
                     table.getColumnModel().getColumn(4).setMaxWidth(60);
                     table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
                         private JTextField hiddenTextField = new JTextField();
+                        private CustomComboBox comboBoxEditor = new CustomComboBox();
 
                         @Override
                         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
                             String cellValue = (String) value;
                             if (cellValue.contains("%n")) {
-                                JComboBox comboBox = new JComboBox();
+                                comboBoxEditor.removeAllItems();
                                 String[] items = cellValue.split("%n");
                                 for (String item : items) {
-                                    comboBox.addItem(item);
+                                    comboBoxEditor.addItem(item);
                                 }
-                                comboBox.addFocusListener(new FocusAdapter() {
+                                comboBoxEditor.addFocusListener(new FocusAdapter() {
                                     @Override
                                     public void focusLost(FocusEvent e) {
                                         super.focusLost(e);
                                         stopCellEditing();
                                     }
                                 });
-                                editorComponent = comboBox;
+                                editorComponent = comboBoxEditor;
                                 delegate = new EditorDelegate() {
                                     @Override
                                     public void setValue(Object value) {
-                                        comboBox.setSelectedItem(value);
+                                        comboBoxEditor.setSelectedItem(value);
                                         hiddenTextField.setText((value != null) ? value.toString() : "");
                                     }
 
                                     @Override
                                     public Object getCellEditorValue() {
-                                        String selectedValue = (String) comboBox.getSelectedItem();
+                                        String selectedValue = (String) comboBoxEditor.getSelectedItem();
                                         StringBuilder cellValue = new StringBuilder(selectedValue);
-                                        for (int i = 0; i < comboBox.getItemCount(); i++) {
-                                            String item = (String) comboBox.getItemAt(i);
+                                        for (int i = 0; i < comboBoxEditor.getItemCount(); i++) {
+                                            String item = (String) comboBoxEditor.getItemAt(i);
                                             if (!item.equals(selectedValue)) {
                                                 cellValue.append("%n").append(item);
                                             }
@@ -305,7 +309,7 @@ public class CreateConfigAction extends AnAction {
                                 delegate = new EditorDelegate() {
                                     @Override
                                     public void setValue(Object value) {
-                                        textField.setText((value != null) ? value.toString().split("%n")[0] : ""); // Вот здесь я изменил логику, чтобы отображался только первый элемент
+                                        textField.setText((value != null) ? value.toString().split("%n")[0] : "");
                                     }
 
                                     @Override
@@ -330,7 +334,7 @@ public class CreateConfigAction extends AnAction {
                             return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                         }
                     });
-
+                    table.getColumnModel().getColumn(2).setCellRenderer(new CustomCellRenderer());
 
                     // Создаем вертикальный отступ
                     Component verticalStrut = Box.createVerticalStrut(5);
@@ -849,6 +853,108 @@ public class CreateConfigAction extends AnAction {
         @Override
         public void addCellEditorListener(CellEditorListener l) {
             super.addCellEditorListener(l);
+        }
+    }
+
+    class CustomCellRenderer extends DefaultTableCellRenderer {
+        Icon icon = UIManager.getIcon("Table.ascendingSortIcon");
+
+        public CustomCellRenderer() {
+            super();
+            setHorizontalAlignment(SwingConstants.LEFT);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            if (value instanceof String) {
+                String cellValue = (String) value;
+                if (cellValue.contains("%n")) {
+                    value = cellValue.split("%n")[0];
+                    setIcon(icon);
+                } else {
+                    setIcon(null);
+                }
+                setText((String) value);
+            }
+            return this;
+        }
+    }
+
+    public class CustomComboBox extends JComboBox<String> {
+        private Icon icon;
+        private int inset = 19;  // Отступ в пикселях
+
+        public CustomComboBox() {
+            super();
+            icon = UIManager.getIcon("Table.descendingSortIcon");
+
+            // Установить свой UI
+            setUI(new BasicComboBoxUI() {
+                @Override
+                protected JButton createArrowButton() {
+                    // Этот код отключает стрелку
+                    return new JButton() {
+                        @Override
+                        public int getWidth() {
+                            return 0;
+                        }
+                    };
+                }
+                @Override
+                protected ComboPopup createPopup() {
+                    CustomComboPopup customComboPopup = new CustomComboPopup(comboBox);
+                    customComboPopup.getAccessibleContext().setAccessibleParent(comboBox);
+                    return customComboPopup;
+                }
+            });
+
+            // Добавляем отступ слева для каждого элемента
+            setRenderer(new DefaultListCellRenderer() {
+                @Override
+                public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                    super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                    setBorder(new EmptyBorder(0, inset, 0, 0));
+                    return this;
+                }
+            });
+        }
+
+        @Override
+        public void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            int iconWidth = icon.getIconWidth();
+            int iconHeight = icon.getIconHeight();
+            int y = (getHeight() - iconHeight) / 2;
+            icon.paintIcon(this, g, 3, y);
+        }
+    }
+
+    public class CustomComboPopup extends BasicComboPopup {
+        private int maxVisibleRows = 10; // Максимальное количество видимых строк
+
+        public CustomComboPopup(JComboBox comboBox) {
+            super(comboBox);
+        }
+
+        @Override
+        protected Rectangle computePopupBounds(int px, int py, int pw, int ph) {
+            int popupHeight = calculatePopupHeight();
+            Rectangle rect = super.computePopupBounds(px, py, pw, ph);
+            rect.height = popupHeight;
+            return rect;
+        }
+
+        private int calculatePopupHeight() {
+            ListCellRenderer<? super String> renderer = comboBox.getRenderer();
+            if (renderer == null) {
+                throw new IllegalArgumentException("JComboBox должен иметь установленный renderer");
+            }
+            int itemHeight = 20; // Высота одного элемента + отступ
+
+            int itemCount = comboBox.getItemCount();
+            int visibleRows = Math.min(itemCount, maxVisibleRows);
+            return visibleRows * itemHeight;
         }
     }
 }
