@@ -20,13 +20,11 @@ import org.ini4j.Wini;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -35,7 +33,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
-import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -261,33 +258,79 @@ public class CreateConfigAction extends AnAction {
                     table.getColumn("-").setCellEditor(new IconEditor(table, model));
                     table.getColumnModel().getColumn(0).setMaxWidth(40);
                     table.getColumnModel().getColumn(4).setMaxWidth(60);
-                    table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JComboBox()) {
+                    table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
+                        private JTextField hiddenTextField = new JTextField();
+
                         @Override
                         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
                             String cellValue = (String) value;
-                            String[] items = cellValue.split("%n");
-                            JComboBox comboBox = (JComboBox) editorComponent;
-                            comboBox.removeAllItems();
-                            for (String item : items) {
-                                comboBox.addItem(item);
+                            if (cellValue.contains("%n")) {
+                                JComboBox comboBox = new JComboBox();
+                                String[] items = cellValue.split("%n");
+                                for (String item : items) {
+                                    comboBox.addItem(item);
+                                }
+                                comboBox.addFocusListener(new FocusAdapter() {
+                                    @Override
+                                    public void focusLost(FocusEvent e) {
+                                        super.focusLost(e);
+                                        stopCellEditing();
+                                    }
+                                });
+                                editorComponent = comboBox;
+                                delegate = new EditorDelegate() {
+                                    @Override
+                                    public void setValue(Object value) {
+                                        comboBox.setSelectedItem(value);
+                                        hiddenTextField.setText((value != null) ? value.toString() : "");
+                                    }
+
+                                    @Override
+                                    public Object getCellEditorValue() {
+                                        String selectedValue = (String) comboBox.getSelectedItem();
+                                        StringBuilder cellValue = new StringBuilder(selectedValue);
+                                        for (int i = 0; i < comboBox.getItemCount(); i++) {
+                                            String item = (String) comboBox.getItemAt(i);
+                                            if (!item.equals(selectedValue)) {
+                                                cellValue.append("%n").append(item);
+                                            }
+                                        }
+                                        hiddenTextField.setText(cellValue.toString());
+                                        return hiddenTextField.getText();
+                                    }
+                                };
+                            } else {
+                                JTextField textField = new JTextField();
+                                editorComponent = textField;
+                                delegate = new EditorDelegate() {
+                                    @Override
+                                    public void setValue(Object value) {
+                                        textField.setText((value != null) ? value.toString().split("%n")[0] : ""); // Вот здесь я изменил логику, чтобы отображался только первый элемент
+                                    }
+
+                                    @Override
+                                    public Object getCellEditorValue() {
+                                        return textField.getText();
+                                    }
+                                };
                             }
                             return super.getTableCellEditorComponent(table, value, isSelected, row, column);
                         }
+                    });
 
+                    table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
                         @Override
-                        public Object getCellEditorValue() {
-                            String selectedValue = (String) super.getCellEditorValue();
-                            JComboBox comboBox = (JComboBox) editorComponent;
-                            StringBuilder cellValue = new StringBuilder(selectedValue);
-                            for (int i = 0; i < comboBox.getItemCount(); i++) {
-                                String item = (String) comboBox.getItemAt(i);
-                                if (!item.equals(selectedValue)) {
-                                    cellValue.append("%n").append(item);
+                        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                            if (value instanceof String) {
+                                String cellValue = (String) value;
+                                if (cellValue.contains("%n")) {
+                                    value = cellValue.split("%n")[0];
                                 }
                             }
-                            return cellValue.toString();
+                            return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                         }
                     });
+
 
                     // Создаем вертикальный отступ
                     Component verticalStrut = Box.createVerticalStrut(5);
@@ -295,6 +338,14 @@ public class CreateConfigAction extends AnAction {
                     // Устанавливаем высоту строки последней строки на 1 пиксель
                     int lastRowIndex = table.getRowCount() - 1;
                     table.setRowHeight(lastRowIndex, 1);
+                    table.addFocusListener(new FocusAdapter() {
+                        @Override
+                        public void focusLost(FocusEvent e) {
+                            if (table.isEditing() && !(table.getEditorComponent() instanceof JComboBox || table.getEditorComponent() instanceof JButton)) {
+                                table.getCellEditor().stopCellEditing();
+                            }
+                        }
+                    });
 
                     JScrollPane scrollPane = new JScrollPane(table);
                     panel.add(scrollPane, BorderLayout.NORTH);
@@ -798,12 +849,6 @@ public class CreateConfigAction extends AnAction {
         @Override
         public void addCellEditorListener(CellEditorListener l) {
             super.addCellEditorListener(l);
-        }
-    }
-
-    class ComboBoxCellEditor extends DefaultCellEditor {
-        public ComboBoxCellEditor(String[] items) {
-            super(new JComboBox(items));
         }
     }
 }
