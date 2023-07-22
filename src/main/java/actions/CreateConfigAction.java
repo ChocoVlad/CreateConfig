@@ -19,7 +19,7 @@ import org.ini4j.Wini;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.CellEditorListener;
+import javax.swing.event.*;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicComboPopup;
 import javax.swing.plaf.basic.ComboPopup;
@@ -49,6 +49,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
     private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP";
+    private static final String PREF_USE_IF = "USE_IF";
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
@@ -435,7 +436,27 @@ public class CreateConfigAction extends AnAction {
                                 checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
                                 JDialog specialParametersDialog = new JDialog(settingsDialog);
 
-                                JButton saveButton = new JButton("ОК");
+                                JTextField useIfTextField = new JTextField(getPrefStringState(PREF_USE_IF));
+                                useIfTextField.setPreferredSize(new Dimension(300, 25));
+                                useIfTextField.getDocument().addDocumentListener(new DocumentListener() {
+                                    @Override
+                                    public void insertUpdate(DocumentEvent e) {
+                                        setPrefStringState(PREF_USE_IF, useIfTextField.getText());
+                                    }
+
+                                    @Override
+                                    public void removeUpdate(DocumentEvent e) {
+                                        setPrefStringState(PREF_USE_IF, useIfTextField.getText());
+                                    }
+
+                                    @Override
+                                    public void changedUpdate(DocumentEvent e) {
+                                        setPrefStringState(PREF_USE_IF, useIfTextField.getText());
+                                    }
+                                });
+                                useIfTextField.setToolTipText("<html><b>USE_IF:</b> Пользовательский параметр</html>");
+
+                                JButton saveButton = new JButton("Закрыть");
                                 saveButton.addActionListener(new ActionListener() {
                                     @Override
                                     public void actionPerformed(ActionEvent e) {
@@ -443,6 +464,7 @@ public class CreateConfigAction extends AnAction {
                                         setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
                                         setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
                                         setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
+                                        setPrefStringState(PREF_USE_IF, useIfTextField.getText());
                                         specialParametersDialog.dispose();
                                     }
                                 });
@@ -456,6 +478,8 @@ public class CreateConfigAction extends AnAction {
                                 checkBoxPanel.add(testFilesCheckBox, gbc);
                                 checkBoxPanel.add(checkConfigCheckBox, gbc);
                                 checkBoxPanel.add(checkTooltipParameterBox, gbc);
+                                checkBoxPanel.add(new JLabel("<html><b>&#8625;</b> USE_IF</html>"), gbc);
+                                checkBoxPanel.add(useIfTextField, gbc);
                                 checkBoxPanel.add(new JPanel(), gbc);
                                 checkBoxPanel.add(saveButton, gbc);
 
@@ -882,18 +906,21 @@ public class CreateConfigAction extends AnAction {
     }
 
     public class CustomComboBox extends JComboBox<String> {
-        private Icon icon;
+        private Icon collapsedIcon;
+        private Icon expandedIcon;
         private int inset = 19;  // Отступ в пикселях
+        private Icon currentIcon;
 
         public CustomComboBox() {
             super();
-            icon = UIManager.getIcon("Table.descendingSortIcon");
+            collapsedIcon = UIManager.getIcon("Table.ascendingSortIcon");
+            expandedIcon = UIManager.getIcon("Table.descendingSortIcon");
+            currentIcon = collapsedIcon; // Установите начальную иконку
 
             // Установить свой UI
             setUI(new BasicComboBoxUI() {
                 @Override
                 protected JButton createArrowButton() {
-                    // Этот код отключает стрелку
                     return new JButton() {
                         @Override
                         public int getWidth() {
@@ -901,6 +928,7 @@ public class CreateConfigAction extends AnAction {
                         }
                     };
                 }
+
                 @Override
                 protected ComboPopup createPopup() {
                     CustomComboPopup customComboPopup = new CustomComboPopup(comboBox);
@@ -918,15 +946,36 @@ public class CreateConfigAction extends AnAction {
                     return this;
                 }
             });
+
+            // Добавить слушатель выпадающего списка
+            addPopupMenuListener(new PopupMenuListener() {
+                @Override
+                public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                    currentIcon = expandedIcon;
+                    repaint();
+                }
+
+                @Override
+                public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                    currentIcon = collapsedIcon;
+                    repaint();
+                }
+
+                @Override
+                public void popupMenuCanceled(PopupMenuEvent e) {
+                    currentIcon = collapsedIcon;
+                    repaint();
+                }
+            });
         }
 
         @Override
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
-            int iconWidth = icon.getIconWidth();
-            int iconHeight = icon.getIconHeight();
+            int iconWidth = currentIcon.getIconWidth();
+            int iconHeight = currentIcon.getIconHeight();
             int y = (getHeight() - iconHeight) / 2;
-            icon.paintIcon(this, g, 3, y);
+            currentIcon.paintIcon(this, g, 3, y);
         }
     }
 
@@ -956,5 +1005,16 @@ public class CreateConfigAction extends AnAction {
             int visibleRows = Math.min(itemCount, maxVisibleRows);
             return visibleRows * itemHeight;
         }
+    }
+    // Метод получения состояния настройки в виде строки
+    private String getPrefStringState(String prefName) {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        return preferences.get(prefName, "");
+    }
+
+    // Метод установки состояния настройки в виде строки
+    private void setPrefStringState(String prefName, String state) {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        preferences.put(prefName, state);
     }
 }
