@@ -20,6 +20,8 @@ import org.ini4j.Wini;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicComboPopup;
 import javax.swing.plaf.basic.ComboPopup;
@@ -882,12 +884,16 @@ public class CreateConfigAction extends AnAction {
     }
 
     public class CustomComboBox extends JComboBox<String> {
-        private Icon icon;
+        private Icon collapsedIcon;
+        private Icon expandedIcon;
+        private Icon currentIcon;
         private int inset = 19;  // Отступ в пикселях
 
         public CustomComboBox() {
             super();
-            icon = UIManager.getIcon("Table.descendingSortIcon");
+            collapsedIcon = UIManager.getIcon("Table.ascendingSortIcon");
+            expandedIcon = UIManager.getIcon("Table.descendingSortIcon");
+            currentIcon = collapsedIcon; // Установите начальную иконку
 
             // Установить свой UI
             setUI(new BasicComboBoxUI() {
@@ -901,6 +907,7 @@ public class CreateConfigAction extends AnAction {
                         }
                     };
                 }
+
                 @Override
                 protected ComboPopup createPopup() {
                     CustomComboPopup customComboPopup = new CustomComboPopup(comboBox);
@@ -918,15 +925,36 @@ public class CreateConfigAction extends AnAction {
                     return this;
                 }
             });
+
+            // Добавить слушатель выпадающего списка
+            addPopupMenuListener(new PopupMenuListener() {
+                @Override
+                public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                    currentIcon = expandedIcon;
+                    repaint();
+                }
+
+                @Override
+                public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                    currentIcon = collapsedIcon;
+                    repaint();
+                }
+
+                @Override
+                public void popupMenuCanceled(PopupMenuEvent e) {
+                    currentIcon = collapsedIcon;
+                    repaint();
+                }
+            });
         }
 
         @Override
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
-            int iconWidth = icon.getIconWidth();
-            int iconHeight = icon.getIconHeight();
+            int iconWidth = currentIcon.getIconWidth();
+            int iconHeight = currentIcon.getIconHeight();
             int y = (getHeight() - iconHeight) / 2;
-            icon.paintIcon(this, g, 3, y);
+            currentIcon.paintIcon(this, g, 3, y);
         }
     }
 
