@@ -18,6 +18,8 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.border.AbstractBorder;
+import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
 import javax.swing.event.PopupMenuEvent;
@@ -54,9 +56,11 @@ public class CreateConfigAction extends AnAction {
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
+    private JDialog settingsDialog = null;
 
     // Карта для хранения параметров
     private Map<String, Parameter> parameters;
+    private Map<String, Parameter> currentParameters;
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -213,14 +217,15 @@ public class CreateConfigAction extends AnAction {
             public void actionPerformed(ActionEvent e) {
                 // Создание диалога для отображения панели
                 if (settingsDialogOpen == null || !settingsDialogOpen.isShowing()) {
+                    currentParameters = new HashMap<>(parameters);
                     JPanel panel = new JPanel();
                     panel.setLayout(new BorderLayout());
 
-                    Object[][] data = new Object[parameters.size()][5];
-                    String[] columnNames = {" ", "Название", "Значение", "Секция", "-", "Ed"};
+                    Object[][] data = new Object[currentParameters.size()][5];
+                    String[] columnNames = {" ", "Название", "Значение", "Секция", "", "-"};
 
                     int i = 0;
-                    for (Map.Entry<String, Parameter> entry : parameters.entrySet()) {
+                    for (Map.Entry<String, Parameter> entry : currentParameters.entrySet()) {
                         data[i][0] = entry.getValue().isActive();
                         data[i][1] = entry.getKey();
                         data[i][2] = entry.getValue().getValue();
@@ -264,7 +269,7 @@ public class CreateConfigAction extends AnAction {
                     table.getColumn("-").setCellRenderer(new IconRenderer());
                     table.getColumn("-").setCellEditor(new IconEditor(table, model));
                     table.getColumnModel().getColumn(0).setMaxWidth(40);
-                    table.getColumnModel().getColumn(4).setMaxWidth(60);
+                    table.getColumnModel().getColumn(5).setMaxWidth(60);
                     table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
                         private JTextField hiddenTextField = new JTextField();
                         private CustomComboBox comboBoxEditor = new CustomComboBox();
@@ -371,19 +376,72 @@ public class CreateConfigAction extends AnAction {
                     JTextField sectionField = new JTextField();
                     inputPanel.add(labeledField("Секция", sectionField));
 
-                    table.getColumnModel().getColumn(5).setCellRenderer(new EditButtonRenderer());
-                    table.getColumnModel().getColumn(5).setCellEditor(new EditButtonEditor(table, model, nameField, valueField, sectionField));
-                    table.getColumnModel().getColumn(5).setMaxWidth(60);
+                    table.getColumnModel().getColumn(4).setCellRenderer(new EditButtonRenderer());
+                    table.getColumnModel().getColumn(4).setCellEditor(new EditButtonEditor(table, model, nameField, valueField, sectionField));
+                    table.getColumnModel().getColumn(4).setMaxWidth(60);
                     JButton addButton = new JButton("Добавить параметр");
                     addButton.addActionListener(new ActionListener() {
                         @Override
-                        public void actionPerformed(ActionEvent actionEvent) {
+                        public void actionPerformed(ActionEvent e) {
                             String name = nameField.getText();
                             String value = valueField.getText();
                             String section = sectionField.getText();
-                            if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
-                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                parameters.put(name, new Parameter(value, section, true));
+
+                            // Обнуляем рамку всех полей перед проверкой
+                            nameField.setBorder(new JTextField().getBorder());
+                            valueField.setBorder(new JTextField().getBorder());
+                            sectionField.setBorder(new JTextField().getBorder());
+                            Color newColor = new Color(204, 71, 66, 255);
+                            if (name.isEmpty() || value.isEmpty() || section.isEmpty()) {
+                                if (name.isEmpty()) {
+                                    nameField.setBorder(new GradientBorder(newColor));
+                                }
+                                if (value.isEmpty()) {
+                                    valueField.setBorder(new GradientBorder(newColor));
+                                }
+                                if (section.isEmpty()) {
+                                    sectionField.setBorder(new GradientBorder(newColor));
+                                }
+                            } else {
+                                if (currentParameters.containsKey(name)) {
+                                    Parameter existingParam = currentParameters.get(name);
+                                    if (existingParam.getValue().equals(value) && existingParam.getSection().equals(section)) {
+                                        // Если значения value и section равны существующему параметру,
+                                        // очищаем поля и прекращаем обработку события
+                                        nameField.setText("");
+                                        valueField.setText("");
+                                        sectionField.setText("");
+                                        return;
+                                    }
+                                    Object[] options = {"Подтвердить", "Отмена"};
+                                    int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
+                                            "Вы собираетесь изменить уже существующий параметр \"" + name + "\".",
+                                            "Подтвердите изменение",
+                                            JOptionPane.YES_NO_OPTION,
+                                            JOptionPane.WARNING_MESSAGE,
+                                            null,
+                                            options,
+                                            options[0]);
+                                    if (dialogResult == JOptionPane.YES_OPTION) {
+                                        // Ищем строку с таким же именем и удаляем её
+                                        for (int i = 0; i < model.getRowCount(); i++) {
+                                            if (model.getValueAt(i, 1).equals(name)) {
+                                                model.removeRow(i);
+                                                break;
+                                            }
+                                        }
+
+                                        // Удаляем старое значение параметра из currentParameters
+                                        currentParameters.remove(name);
+
+                                        model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                                        currentParameters.put(name, new Parameter(value, section, true));
+                                    }
+                                } else {
+                                    model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                                    currentParameters.put(name, new Parameter(value, section, true));
+                                }
+
                                 nameField.setText("");
                                 valueField.setText("");
                                 sectionField.setText("");
@@ -393,7 +451,7 @@ public class CreateConfigAction extends AnAction {
 
                     inputPanel.add(addButton);
 
-                    JDialog settingsDialog = new JDialog();
+                    settingsDialog = new JDialog();
 
                     // Добавляем кнопку "Специальные параметры"
                     JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
@@ -520,19 +578,19 @@ public class CreateConfigAction extends AnAction {
                     okButton.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            parameters.clear();
+                            currentParameters.clear();
                             for (int j = 0; j < model.getRowCount(); j++) {
                                 Boolean active = (Boolean) model.getValueAt(j, 0);
                                 String name = (String) model.getValueAt(j, 1);
                                 String value = (String) model.getValueAt(j, 2);
                                 String section = (String) model.getValueAt(j, 3);
                                 if (name != null & value != null & section != null) {
-                                    parameters.put(name, new Parameter(value, section, active));
+                                    currentParameters.put(name, new Parameter(value, section, active));
                                 }
                             }
                             Preferences preferences = Preferences.userNodeForPackage(getClass());
                             Gson gson = new Gson();
-                            preferences.put(PREF_PARAMETERS, gson.toJson(parameters));
+                            preferences.put(PREF_PARAMETERS, gson.toJson(currentParameters));
                             saveConfigParameters(project);
                             settingsDialog.dispose();
                         }
@@ -664,8 +722,8 @@ public class CreateConfigAction extends AnAction {
 
                     ini.load(iniFile);
 
-                    for (String key : parameters.keySet()) {
-                        Parameter parameter = parameters.get(key);
+                    for (String key : currentParameters.keySet()) {
+                        Parameter parameter = currentParameters.get(key);
                         String value = parameter.getValue();
                         String section = parameter.getSection();
                         Boolean active = parameter.isActive();
@@ -833,7 +891,7 @@ public class CreateConfigAction extends AnAction {
                 int selectedRow = table.getSelectedRow();
                 if (selectedRow != -1) {
                     String name = (String) model.getValueAt(selectedRow, 1);
-                    parameters.remove(name);
+                    currentParameters.remove(name);
                     model.removeRow(selectedRow);
                 }
             }
@@ -1088,6 +1146,30 @@ public class CreateConfigAction extends AnAction {
         @Override
         public void addCellEditorListener(CellEditorListener l) {
             super.addCellEditorListener(l);
+        }
+    }
+
+    public class GradientBorder extends AbstractBorder {
+        private final Color color;
+
+        public GradientBorder(Color color) {
+            this.color = color;
+        }
+
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            GradientPaint gradientPaint = new GradientPaint(0, 0, color, 0, height, new Color(0x02A1818, true));
+            g2d.setPaint(gradientPaint);
+
+            Stroke oldStroke = g2d.getStroke();
+            // Определяем толщину линии рамки
+            int borderSize = 2;
+            g2d.setStroke(new BasicStroke(borderSize));
+            // Рисуем прямоугольник вокруг элемента
+            g2d.drawRect(x + borderSize - 1, y + borderSize + 1, width - borderSize - 1, height - borderSize - 1);
+            g2d.setStroke(oldStroke);
         }
     }
 }
