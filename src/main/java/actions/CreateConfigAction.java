@@ -217,7 +217,7 @@ public class CreateConfigAction extends AnAction {
                     panel.setLayout(new BorderLayout());
 
                     Object[][] data = new Object[parameters.size()][5];
-                    String[] columnNames = {" ", "Название", "Значение", "Секция", "-"};
+                    String[] columnNames = {" ", "Название", "Значение", "Секция", "-", "Ed"};
 
                     int i = 0;
                     for (Map.Entry<String, Parameter> entry : parameters.entrySet()) {
@@ -240,9 +240,11 @@ public class CreateConfigAction extends AnAction {
                                 case 2:
                                 case 3:
                                 case 4:
+                                case 5:
                                     return Object.class;
                                 default:
                                     return super.getColumnClass(columnIndex);
+
                             }
                         }
 
@@ -369,6 +371,9 @@ public class CreateConfigAction extends AnAction {
                     JTextField sectionField = new JTextField();
                     inputPanel.add(labeledField("Секция", sectionField));
 
+                    table.getColumnModel().getColumn(5).setCellRenderer(new EditButtonRenderer());
+                    table.getColumnModel().getColumn(5).setCellEditor(new EditButtonEditor(table, model, nameField, valueField, sectionField));
+                    table.getColumnModel().getColumn(5).setMaxWidth(60);
                     JButton addButton = new JButton("Добавить параметр");
                     addButton.addActionListener(new ActionListener() {
                         @Override
@@ -377,8 +382,10 @@ public class CreateConfigAction extends AnAction {
                             String value = valueField.getText();
                             String section = sectionField.getText();
                             if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
-                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                parameters.put(name, new Parameter(value, section, true));
+                                // Проверяем наличие такого же параметра в таблице
+                                handleDuplicateParameter(name, value, section, model);
+
+                                // Очищаем поля после обработки
                                 nameField.setText("");
                                 valueField.setText("");
                                 sectionField.setText("");
@@ -983,6 +990,142 @@ public class CreateConfigAction extends AnAction {
             int itemCount = comboBox.getItemCount();
             int visibleRows = Math.min(itemCount, maxVisibleRows);
             return visibleRows * itemHeight;
+        }
+    }
+    class EditButtonRenderer extends JButton implements TableCellRenderer {
+        public EditButtonRenderer() {
+            setOpaque(true);
+        }
+
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                                                       boolean isSelected, boolean hasFocus, int row, int column) {
+            if (isSelected) {
+                setForeground(table.getSelectionForeground());
+                setBackground(table.getSelectionBackground());
+            } else {
+                setForeground(table.getForeground());
+                setBackground(UIManager.getColor("Button.background"));
+            }
+            setIcon(AllIcons.Actions.Edit);
+            setText("");
+            return this;
+        }
+    }
+    class EditButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private boolean isPushed;
+        private JTable table;
+        private DefaultTableModel model;
+        private JTextField nameField;
+        private JTextField valueField;
+        private JTextField sectionField;
+
+        public EditButtonEditor(JTable table, DefaultTableModel model, JTextField nameField, JTextField valueField, JTextField sectionField) {
+            super(new JCheckBox());
+            this.table = table;
+            this.model = model;
+            this.nameField = nameField;
+            this.valueField = valueField;
+            this.sectionField = sectionField;
+            button = new JButton();
+            button.setOpaque(true);
+            button.setIcon(AllIcons.Actions.Edit);
+            button.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    fireEditingStopped();
+                }
+            });
+        }
+
+        public Component getTableCellEditorComponent(JTable table, Object value,
+                                                     boolean isSelected, int row, int column) {
+            if (isSelected) {
+                button.setForeground(table.getSelectionForeground());
+                button.setBackground(table.getSelectionBackground());
+            } else {
+                button.setForeground(table.getForeground());
+                button.setBackground(table.getBackground());
+            }
+
+            label = "";
+            button.setText(label);
+            isPushed = true;
+
+            return button;
+        }
+
+        public Object getCellEditorValue() {
+            if (isPushed) {
+                int selectedRow = table.getSelectedRow();
+                if (selectedRow != -1) {
+                    String name = (String) model.getValueAt(selectedRow, 1);
+                    String value = (String) model.getValueAt(selectedRow, 2);
+                    String section = (String) model.getValueAt(selectedRow, 3);
+                    nameField.setText(name);
+                    valueField.setText(value);
+                    sectionField.setText(section);
+                }
+            }
+            isPushed = false;
+            return new String(label);
+        }
+
+        public boolean stopCellEditing() {
+            isPushed = false;
+            return super.stopCellEditing();
+        }
+
+        @Override
+        public boolean isCellEditable(EventObject anEvent) {
+            return true;
+        }
+
+        @Override
+        public void cancelCellEditing() {
+            isPushed = false;
+            super.cancelCellEditing();
+        }
+
+        @Override
+        public void addCellEditorListener(CellEditorListener l) {
+            super.addCellEditorListener(l);
+        }
+    }
+
+    private void handleDuplicateParameter(String name, String value, String section, DefaultTableModel model) {
+        // Ищем существующую строку с таким же именем
+        int existingRowIndex = -1;
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (name.equals(model.getValueAt(i, 1))) {
+                existingRowIndex = i;
+                break;
+            }
+        }
+        if (existingRowIndex == -1) {
+            // Нет совпадения, просто добавляем параметр
+            model.addRow(new Object[]{true, name, value, section, AllIcons.Actions.GC});
+            return;
+        }
+
+        // Если параметр уже существует, показываем диалоговое окно
+        String[] options = {"Объединить", "Заменить", "Отмена"};
+        int response = JOptionPane.showOptionDialog(null, "Такой параметр уже существует! Выберите дальнейшее действие.",
+                "Параметр уже существует", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
+                null, options, options[0]);
+
+        switch (response) {
+            case 0: // Объединить
+                String existingValue = (String) model.getValueAt(existingRowIndex, 2);
+                existingValue += "%n" + value;
+                model.setValueAt(existingValue, existingRowIndex, 2);
+                break;
+            case 1: // Заменить
+                model.setValueAt(value, existingRowIndex, 2);
+                model.setValueAt(section, existingRowIndex, 3);
+                break;
+            case 2: // Отмена
+                break;
         }
     }
 }
