@@ -382,10 +382,8 @@ public class CreateConfigAction extends AnAction {
                             String value = valueField.getText();
                             String section = sectionField.getText();
                             if (!name.isEmpty() && !value.isEmpty() && !section.isEmpty()) {
-                                // Проверяем наличие такого же параметра в таблице
-                                handleDuplicateParameter(name, value, section, model);
-
-                                // Очищаем поля после обработки
+                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                                parameters.put(name, new Parameter(value, section, true));
                                 nameField.setText("");
                                 valueField.setText("");
                                 sectionField.setText("");
@@ -1090,42 +1088,6 @@ public class CreateConfigAction extends AnAction {
         @Override
         public void addCellEditorListener(CellEditorListener l) {
             super.addCellEditorListener(l);
-        }
-    }
-
-    private void handleDuplicateParameter(String name, String value, String section, DefaultTableModel model) {
-        // Ищем существующую строку с таким же именем
-        int existingRowIndex = -1;
-        for (int i = 0; i < model.getRowCount(); i++) {
-            if (name.equals(model.getValueAt(i, 1))) {
-                existingRowIndex = i;
-                break;
-            }
-        }
-        if (existingRowIndex == -1) {
-            // Нет совпадения, просто добавляем параметр
-            model.addRow(new Object[]{true, name, value, section, AllIcons.Actions.GC});
-            return;
-        }
-
-        // Если параметр уже существует, показываем диалоговое окно
-        String[] options = {"Объединить", "Заменить", "Отмена"};
-        int response = JOptionPane.showOptionDialog(null, "Такой параметр уже существует! Выберите дальнейшее действие.",
-                "Параметр уже существует", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
-                null, options, options[0]);
-
-        switch (response) {
-            case 0: // Объединить
-                String existingValue = (String) model.getValueAt(existingRowIndex, 2);
-                existingValue += "%n" + value;
-                model.setValueAt(existingValue, existingRowIndex, 2);
-                break;
-            case 1: // Заменить
-                model.setValueAt(value, existingRowIndex, 2);
-                model.setValueAt(section, existingRowIndex, 3);
-                break;
-            case 2: // Отмена
-                break;
         }
     }
 }
