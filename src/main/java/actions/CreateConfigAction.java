@@ -405,7 +405,7 @@ public class CreateConfigAction extends AnAction {
                             } else {
                                 if (currentParameters.containsKey(name)) {
                                     Parameter existingParam = currentParameters.get(name);
-                                    if (existingParam.getValue().equals(value) && existingParam.getSection().equals(section)) {
+                                    if (checkStrings(existingParam.getValue(), value) && existingParam.getSection().equals(section)) {
                                         // Если значения value и section равны существующему параметру,
                                         // очищаем поля и прекращаем обработку события
                                         nameField.setText("");
@@ -1171,5 +1171,32 @@ public class CreateConfigAction extends AnAction {
             g2d.drawRect(x + borderSize - 1, y + borderSize + 1, width - borderSize - 1, height - borderSize - 1);
             g2d.setStroke(oldStroke);
         }
+    }
+
+    private static boolean checkStrings(String str1, String str2) {
+        // Находим символы, по которым нужно разделить строки
+        char delimiter = '%';
+
+        // Разделяем строки по символу-разделителю и получаем списки символов
+        String[] list1 = splitString(str1, delimiter);
+        String[] list2 = splitString(str2, delimiter);
+
+        // Проверяем, что списки символов из обеих строк совпадают
+        if (list1.length != list2.length) {
+            return false;
+        }
+
+        for (int i = 0; i < list1.length; i++) {
+            if (!list1[i].equals(list2[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static String[] splitString(String str, char delimiter) {
+        // Метод для разделения строки по заданному символу-разделителю
+        return str.split(String.valueOf(delimiter));
     }
 }
