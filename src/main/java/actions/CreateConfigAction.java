@@ -15,6 +15,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.WindowManager;
 import org.ini4j.Wini;
 
 import javax.swing.*;
@@ -111,7 +112,7 @@ public class CreateConfigAction extends AnAction {
                 // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
                 // Создаем пункт меню с именем файла и иконкой
-                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.General.ArrowRight);
+                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.General.CopyHovered);
 
                 // Проверяем наличие файла config.ini
                 VirtualFile configOldFile = parentDirectory.findChild("config.ini");
@@ -451,7 +452,9 @@ public class CreateConfigAction extends AnAction {
 
                     inputPanel.add(addButton);
 
-                    settingsDialog = new JDialog();
+                    Window parent = WindowManager.getInstance().getFrame(project);
+                    settingsDialog = new JDialog(parent);
+                    settingsDialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 
                     // Добавляем кнопку "Специальные параметры"
                     JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
