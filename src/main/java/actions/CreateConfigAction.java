@@ -20,7 +20,6 @@ import org.ini4j.Wini;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.CellEditorListener;
 import javax.swing.event.PopupMenuEvent;
@@ -416,7 +415,7 @@ public class CreateConfigAction extends AnAction {
                                     }
                                     Object[] options = {"Подтвердить", "Отмена"};
                                     int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
-                                            "Вы собираетесь изменить уже существующий параметр \"" + name + "\".",
+                                            "Вы собираетесь изменить существующий параметр \"" + name + "\".",
                                             "Подтвердите изменение",
                                             JOptionPane.YES_NO_OPTION,
                                             JOptionPane.WARNING_MESSAGE,
@@ -953,7 +952,7 @@ public class CreateConfigAction extends AnAction {
         private Icon collapsedIcon;
         private Icon expandedIcon;
         private Icon currentIcon;
-        private int inset = 19;  // Отступ в пикселях
+        private int inset = 18;  // Отступ в пикселях
 
         public CustomComboBox() {
             super();
@@ -998,6 +997,16 @@ public class CreateConfigAction extends AnAction {
                 public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
                     currentIcon = expandedIcon;
                     repaint();
+                    SwingUtilities.invokeLater(() -> {
+                        Object child = e.getSource();
+                        if (child instanceof JComboBox) {
+                            Object popup = ((JComboBox) child).getUI().getAccessibleChild((JComboBox) child, 0);
+                            if (popup instanceof BasicComboPopup) {
+                                JList list = ((BasicComboPopup) popup).getList();
+                                list.setFixedCellHeight(25);
+                            }
+                        }
+                    });
                 }
 
                 @Override
@@ -1044,7 +1053,8 @@ public class CreateConfigAction extends AnAction {
             if (renderer == null) {
                 throw new IllegalArgumentException("JComboBox должен иметь установленный renderer");
             }
-            int itemHeight = 20; // Высота одного элемента + отступ
+
+            int itemHeight = 25;
 
             int itemCount = comboBox.getItemCount();
             int visibleRows = Math.min(itemCount, maxVisibleRows);
@@ -1067,6 +1077,9 @@ public class CreateConfigAction extends AnAction {
             }
             setIcon(AllIcons.Actions.Edit);
             setText("");
+            if (row != table.getRowCount() - 1) {
+                table.setRowHeight(row, 25);
+            }
             return this;
         }
     }
@@ -1110,6 +1123,9 @@ public class CreateConfigAction extends AnAction {
             label = "";
             button.setText(label);
             isPushed = true;
+            if (row != table.getRowCount() - 1) {
+                table.setRowHeight(row, 25);
+            }
 
             return button;
         }
