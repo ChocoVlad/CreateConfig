@@ -724,6 +724,9 @@ public class CreateConfigAction extends AnAction {
 
                     ini.load(iniFile);
 
+                    if (currentParameters == null) {
+                        currentParameters = new HashMap<>(parameters);
+                    }
                     for (String key : currentParameters.keySet()) {
                         Parameter parameter = currentParameters.get(key);
                         String value = parameter.getValue();
