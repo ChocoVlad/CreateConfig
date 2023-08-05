@@ -21,9 +21,7 @@ import org.ini4j.Wini;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.CellEditorListener;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
+import javax.swing.event.*;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicComboPopup;
 import javax.swing.plaf.basic.ComboPopup;
@@ -125,9 +123,9 @@ public class CreateConfigAction extends AnAction {
                                 Matcher matcher = Pattern.compile("Файл конфигурации скопирован из: (.*)").matcher(line);
                                 if (matcher.find()) {
                                     String copiedFromFile = matcher.group(1);
-                                        if (copiedFromFile.equals(configFile.getName())) {
-                                            menuItem.setIcon(AllIcons.General.InspectionsOK); // Устанавливаем иконку для файла, если найден соответствующий файл в списке
-                                            break;
+                                    if (copiedFromFile.equals(configFile.getName())) {
+                                        menuItem.setIcon(AllIcons.General.InspectionsOK); // Устанавливаем иконку для файла, если найден соответствующий файл в списке
+                                        break;
                                     }
                                 }
                                 break;
@@ -523,15 +521,197 @@ public class CreateConfigAction extends AnAction {
                                 checkBoxPanel.add(testFilesCheckBox, gbc);
                                 checkBoxPanel.add(checkConfigCheckBox, gbc);
                                 checkBoxPanel.add(checkTooltipParameterBox, gbc);
-                                checkBoxPanel.add(new JPanel(), gbc);
+
+                                // Добавляем раздел "Группы"
+                                JPanel groupsPanel = new JPanel(new GridBagLayout());
+                                GridBagConstraints groupsGbc = new GridBagConstraints();
+                                groupsGbc.gridwidth = GridBagConstraints.REMAINDER;
+                                groupsGbc.fill = GridBagConstraints.HORIZONTAL;
+
+                                // Создаем общую панель для групп с рамкой
+                                JPanel groupsContainer = new JPanel(new GridBagLayout());
+                                groupsContainer.setBorder(BorderFactory.createTitledBorder("ГРУППЫ")); // Добавляем рамку с заголовком
+
+                                // Создаем макет для размещения компонентов внутри общей панели
+                                GridBagConstraints containerGbc = new GridBagConstraints();
+                                containerGbc.gridwidth = GridBagConstraints.REMAINDER;
+                                containerGbc.fill = GridBagConstraints.HORIZONTAL;
+
+                                // Добавляем панель с группами
+                                groupsContainer.add(groupsPanel, containerGbc);
+
+                                // Панель для ввода новой группы (inputPanel2) с полем и кнопкой
+                                JPanel inputPanel2 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                                JTextField newGroupField = new JTextField();
+                                newGroupField.setPreferredSize(new Dimension(150, 30));
+                                JButton acceptButton = new JButton();
+                                acceptButton.setIcon(AllIcons.Actions.MenuSaveall);
+                                acceptButton.setPreferredSize(new Dimension(30, 30));
+                                inputPanel2.add(newGroupField);
+                                inputPanel2.add(acceptButton);
+                                groupsContainer.add(inputPanel2, containerGbc); // Добавляем панель для ввода в общую панель
+
+                                // Добавляем слушатель к текстовому полю
+                                newGroupField.getDocument().addDocumentListener(new DocumentListener() {
+                                    @Override
+                                    public void insertUpdate(DocumentEvent e) {
+                                        checkField();
+                                    }
+
+                                    @Override
+                                    public void removeUpdate(DocumentEvent e) {
+                                        checkField();
+                                    }
+
+                                    @Override
+                                    public void changedUpdate(DocumentEvent e) {
+                                        checkField();
+                                    }
+
+                                    private void checkField() {
+                                        String groupName = newGroupField.getText().trim();
+
+                                        // Удаляем красную рамку, если текстовое поле не пусто
+                                        if (!groupName.isEmpty()) {
+                                            newGroupField.setBorder(new JTextField().getBorder());
+                                        }
+                                    }
+                                });
+
+                                int rowHeight = 28; // Высота строки для каждой группы
+                                int initialNumberOfGroups = 0; // Начальное количество групп
+                                int maxTextLength = 20; // Максимальная длина текста
+                                Color newColor = new Color(204, 71, 66, 255);
+
+                                // Подтягиваем группы из Preferences
+                                Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+                                String existingGroups = prefs.get("groups", "");
+                                String[] groupNames = existingGroups.split(";");
+
+                                for (String groupName : groupNames) {
+                                    if (!groupName.trim().isEmpty()) {
+                                        initialNumberOfGroups++;
+
+                                        // Сохраняем оригинальное название для всплывающей подсказки
+                                        String originalGroupName = groupName;
+
+                                        // Обрезаем текст, если он превышает максимальную длину
+                                        if (groupName.length() > maxTextLength) {
+                                            groupName = groupName.substring(0, maxTextLength - 3) + "...";
+                                        }
+
+                                        JLabel newGroupLabel = new JLabel(groupName);
+                                        JButton deleteButton = new JButton(AllIcons.Actions.Cancel);
+                                        deleteButton.setPreferredSize(new Dimension(15, 15)); // Устанавливаем размер кнопки
+                                        deleteButton.setContentAreaFilled(false); // Убираем заливку фона
+                                        deleteButton.setBorderPainted(false); // Убираем рамку
+                                        deleteButton.setOpaque(false); // Делаем кнопку прозрачной
+
+                                        // Устанавливаем всплывающую подсказку с оригинальным названием
+                                        newGroupLabel.setToolTipText(originalGroupName);
+
+                                        // Создаем панель для группы и кнопки удаления
+                                        JPanel groupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                                        groupPanel.add(newGroupLabel);
+                                        groupPanel.add(deleteButton);
+
+                                        // Добавляем действие для кнопки удаления
+                                        deleteButton.addActionListener(new ActionListener() {
+                                            @Override
+                                            public void actionPerformed(ActionEvent e) {
+                                                // Удаляем группу из предпочтений
+                                                removePreferenceGroup(originalGroupName);
+                                                // Удаляем всю панель groupPanel
+                                                groupsPanel.remove(groupPanel);
+                                                groupsPanel.revalidate();
+                                                groupsPanel.repaint();
+
+                                                // Уменьшаем высоту окна
+                                                Dimension currentSize = specialParametersDialog.getSize();
+                                                specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                            }
+                                        });
+
+                                        groupsPanel.add(groupPanel, groupsGbc);
+                                    }
+                                }
+                                // Действие при нажатии на кнопку "Зеленая галка"
+                                acceptButton.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        String groupName = newGroupField.getText().trim();
+                                        if (isGroupExists(groupName)) {
+                                            newGroupField.setBorder(new GradientBorder(newColor));
+                                        } else if (!groupName.trim().isEmpty()) {
+                                            // Сохраняем оригинальное название для всплывающей подсказки
+                                            String originalGroupName = groupName;
+
+                                            // Обрезаем текст, если он превышает максимальную длину
+                                            if (groupName.length() > maxTextLength) {
+                                                groupName = groupName.substring(0, maxTextLength - 3) + "...";
+                                            }
+                                            // Добавляем группу в предпочтения
+                                            addPreferenceGroup(originalGroupName);
+
+                                            JLabel newGroupLabel = new JLabel(groupName);
+
+                                            // Устанавливаем всплывающую подсказку с оригинальным названием
+                                            newGroupLabel.setToolTipText(originalGroupName);
+
+                                            JButton deleteButton = new JButton(AllIcons.Actions.Cancel);
+                                            deleteButton.setPreferredSize(new Dimension(15, 15)); // Устанавливаем размер кнопки
+                                            deleteButton.setContentAreaFilled(false); // Убираем заливку фона
+                                            deleteButton.setBorderPainted(false); // Убираем рамку
+                                            deleteButton.setOpaque(false); // Делаем кнопку прозрачной
+
+                                            // Создаем панель для группы и кнопки удаления
+                                            JPanel groupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                                            groupPanel.add(newGroupLabel);
+                                            groupPanel.add(deleteButton);
+
+                                            // Добавляем действие для кнопки удаления
+                                            deleteButton.addActionListener(new ActionListener() {
+                                                @Override
+                                                public void actionPerformed(ActionEvent e) {
+                                                    // Удаляем группу из предпочтений
+                                                    removePreferenceGroup(originalGroupName);
+                                                    // Удаляем всю панель groupPanel
+                                                    groupsPanel.remove(groupPanel);
+                                                    groupsPanel.revalidate();
+                                                    groupsPanel.repaint();
+
+                                                    // Уменьшаем высоту окна
+                                                    Dimension currentSize = specialParametersDialog.getSize();
+                                                    specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                                }
+                                            });
+
+                                            groupsPanel.add(groupPanel, groupsGbc);
+
+                                            // Увеличиваем высоту окна
+                                            Dimension currentSize = specialParametersDialog.getSize();
+                                            specialParametersDialog.setSize(new Dimension((int)currentSize.getWidth(), (int)currentSize.getHeight() + rowHeight));
+
+                                            groupsPanel.revalidate();
+                                            groupsPanel.repaint();
+                                            newGroupField.setText("");
+                                        } else {
+                                            newGroupField.setBorder(new GradientBorder(newColor)); // Устанавливаем красную рамку
+                                        }
+                                    }
+                                });
+
+                                // Добавляем общую панель для групп к основному контейнеру
+                                checkBoxPanel.add(groupsContainer, gbc);
                                 checkBoxPanel.add(saveButton, gbc);
 
                                 // Создаем диалог для отображения панели
+                                specialParametersDialog.setPreferredSize(new Dimension(250, 250 + rowHeight * initialNumberOfGroups));
+                                specialParametersDialog.setSize(new Dimension(250, 250 + rowHeight * initialNumberOfGroups)); // Установите начальный размер
                                 specialParametersDialog.setModalityType(Dialog.ModalityType.MODELESS);
                                 specialParametersDialog.setTitle("Специальные параметры");
                                 specialParametersDialog.getContentPane().add(checkBoxPanel);
                                 specialParametersDialog.pack();
-                                specialParametersDialog.setPreferredSize(new Dimension(500, 200));
 
                                 // Чтобы появился в центре родительского окна
                                 specialParametersDialog.setLocationRelativeTo(settingsDialog);
@@ -787,6 +967,34 @@ public class CreateConfigAction extends AnAction {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         preferences.putBoolean(prefName, state);
     }
+    private void addPreferenceGroup(String groupName) {
+        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+        String existingGroups = prefs.get("groups", "");
+        existingGroups += groupName + ";";
+        prefs.put("groups", existingGroups);
+    }
+
+    private void removePreferenceGroup(String groupName) {
+        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+        String existingGroups = prefs.get("groups", "");
+        existingGroups = existingGroups.replace(groupName + ";", "");
+        prefs.put("groups", existingGroups);
+    }
+
+    private boolean isGroupExists(String groupName) {
+        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+        String existingGroups = prefs.get("groups", "");
+        String[] groupsArray = existingGroups.split(";"); // Разделяем группы по символу ";"
+
+        for (String group : groupsArray) {
+            if (group.equals(groupName)) {
+                return true; // Нашли совпадение
+            }
+        }
+
+        return false; // Не нашли совпадение
+    }
+
 
     // Внутренний класс для описания параметра
     static class Parameter {
