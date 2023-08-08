@@ -1482,8 +1482,8 @@ public class CreateConfigAction extends AnAction {
             this.tabIndex = index;
 
             label = new JLabel();
-            if (title.length() > 25) {
-                label.setText(title.substring(0, 25) + "...");
+            if (title.length() > 20) {
+                label.setText(title.substring(0, 20) + "...");
                 label.setToolTipText(title);
             } else {
                 label.setText(title);
@@ -1507,6 +1507,16 @@ public class CreateConfigAction extends AnAction {
                 public void mouseClicked(MouseEvent e) {
                     parentTabbedPane.setSelectedIndex(tabIndex);
                     CustomTabRenderer.this.repaint();
+                }
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    parentTabbedPane.dispatchEvent(SwingUtilities.convertMouseEvent(label, e, parentTabbedPane));
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    parentTabbedPane.dispatchEvent(SwingUtilities.convertMouseEvent(label, e, parentTabbedPane));
                 }
             });
         }
