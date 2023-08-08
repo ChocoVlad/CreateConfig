@@ -30,6 +30,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -238,17 +240,19 @@ public class CreateConfigAction extends AnAction {
                             JPanel panel = new JPanel();
                             panel.setLayout(new BorderLayout());
 
-                            Object[][] data = new Object[currentParameters.size()][5];
+                            Object[][] data = (currentParameters != null) ? new Object[currentParameters.size()][5] : new Object[0][5];
                             String[] columnNames = {" ", "Название", "Значение", "Секция", "", "-"};
 
-                            int i = 0;
-                            for (Map.Entry<String, Parameter> entry : currentParameters.entrySet()) {
-                                data[i][0] = entry.getValue().isActive();
-                                data[i][1] = entry.getKey();
-                                data[i][2] = entry.getValue().getValue();
-                                data[i][3] = entry.getValue().getSection();
-                                data[i][4] = AllIcons.Actions.GC;
-                                i++;
+                            if (currentParameters != null) {
+                                int i = 0;
+                                for (Map.Entry<String, Parameter> entry : currentParameters.entrySet()) {
+                                    data[i][0] = entry.getValue().isActive();
+                                    data[i][1] = entry.getKey();
+                                    data[i][2] = entry.getValue().getValue();
+                                    data[i][3] = entry.getValue().getSection();
+                                    data[i][4] = AllIcons.Actions.GC;
+                                    i++;
+                                }
                             }
 
                             // Создаем модель таблицы
@@ -714,6 +718,7 @@ public class CreateConfigAction extends AnAction {
                                                     groupsPanel.revalidate();
                                                     groupsPanel.repaint();
                                                     newGroupField.setText("");
+                                                    prefs.put(groupName, "{}");
                                                 } else {
                                                     newGroupField.setBorder(new GradientBorder(newColor)); // Устанавливаем красную рамку
                                                 }
@@ -769,7 +774,9 @@ public class CreateConfigAction extends AnAction {
                             JPanel mainTab = new JPanel();
                             mainTab.add(panel, BorderLayout.CENTER);
                             tabbedPane.addTab(groupName, mainTab);
+                            tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, new CustomTabRenderer(tabbedPane, groupName, tabbedPane.getTabCount() - 1));
                             groupModels.put(groupName, model);
+
                         }
                     }
                     settingsDialog.add(tabbedPane, BorderLayout.CENTER);
@@ -1464,5 +1471,50 @@ public class CreateConfigAction extends AnAction {
     private static String[] splitString(String str, char delimiter) {
         // Метод для разделения строки по заданному символу-разделителю
         return str.split(String.valueOf(delimiter));
+    }
+    class CustomTabRenderer extends JPanel {
+        private JLabel label;
+        private JTabbedPane parentTabbedPane;
+        private int tabIndex;
+
+        public CustomTabRenderer(JTabbedPane tabbedPane, String title, int index) {
+            this.parentTabbedPane = tabbedPane;
+            this.tabIndex = index;
+
+            label = new JLabel();
+            if (title.length() > 25) {
+                label.setText(title.substring(0, 25) + "...");
+                label.setToolTipText(title);
+            } else {
+                label.setText(title);
+            }
+
+            label.setBackground(getBackground());
+            setOpaque(false);
+            label.setOpaque(false);
+
+            add(label);
+
+            addPropertyChangeListener("background", new PropertyChangeListener() {
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    label.setBackground(getBackground());
+                }
+            });
+
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    parentTabbedPane.setSelectedIndex(tabIndex);
+                    CustomTabRenderer.this.repaint();
+                }
+            });
+        }
+
+        // Переопределение метода contains
+        @Override
+        public boolean contains(int x, int y) {
+            return super.contains(x, y);
+        }
     }
 }
