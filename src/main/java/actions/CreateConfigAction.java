@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -288,7 +289,7 @@ public class CreateConfigAction extends AnAction {
                             JTable table = new JTable(model);
                             table.getTableHeader().setReorderingAllowed(false);
                             table.getColumn("-").setCellRenderer(new IconRenderer());
-                            table.getColumn("-").setCellEditor(new IconEditor(table, model));
+                            table.getColumn("-").setCellEditor(new IconEditor(table, model, tabbedPane));
                             table.getColumnModel().getColumn(0).setMaxWidth(40);
                             table.getColumnModel().getColumn(5).setMaxWidth(60);
                             table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
@@ -389,12 +390,15 @@ public class CreateConfigAction extends AnAction {
                             inputPanel.setLayout(new GridLayout(1, 4, 5, 0));
 
                             JTextField nameField = new JTextField();
+                            nameField.setPreferredSize(new Dimension(200, 30));
                             inputPanel.add(labeledField("Название", nameField));
 
                             JTextField valueField = new JTextField();
+                            valueField.setPreferredSize(new Dimension(200, 30));
                             inputPanel.add(labeledField("Значение", valueField));
 
                             JTextField sectionField = new JTextField();
+                            sectionField.setPreferredSize(new Dimension(200, 30));
                             inputPanel.add(labeledField("Секция", sectionField));
 
                             table.getColumnModel().getColumn(4).setCellRenderer(new EditButtonRenderer());
@@ -424,6 +428,15 @@ public class CreateConfigAction extends AnAction {
                                             sectionField.setBorder(new GradientBorder(newColor));
                                         }
                                     } else {
+                                        String currentTab = tabbedPane.getTitleAt(tabbedPane.getSelectedIndex());
+                                        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+                                        if (currentTab.equals("Основные")) {
+                                            currentTab = PREF_PARAMETERS;
+                                        }
+                                        Map<String, Parameter> currentParameters = gson.fromJson(preferences.get(currentTab, ""), type);
+                                        if (currentParameters == null) {
+                                            currentParameters = new HashMap<>();
+                                        }
                                         if (currentParameters.containsKey(name)) {
                                             Parameter existingParam = currentParameters.get(name);
                                             if (checkStrings(existingParam.getValue(), value) && existingParam.getSection().equals(section)) {
@@ -456,11 +469,19 @@ public class CreateConfigAction extends AnAction {
                                                 currentParameters.remove(name);
 
                                                 model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                                currentParameters.put(name, new Parameter(value, section, true));
+                                                Parameter newParam = new Parameter(value, section, true);
+                                                currentParameters.put(name, newParam);
+                                                // Сохраняем обновленные параметры обратно в Preferences
+                                                String json = gson.toJson(currentParameters, type);
+                                                preferences.put(currentTab, json);
                                             }
                                         } else {
                                             model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                            currentParameters.put(name, new Parameter(value, section, true));
+                                            Parameter newParam = new Parameter(value, section, true);
+                                            currentParameters.put(name, newParam);
+                                            // Сохраняем обновленные параметры обратно в Preferences
+                                            String json = gson.toJson(currentParameters, type);
+                                            preferences.put(currentTab, json);
                                         }
 
                                         nameField.setText("");
@@ -532,6 +553,11 @@ public class CreateConfigAction extends AnAction {
                                                 setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
                                                 setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
                                                 specialParametersDialog.dispose();
+                                                // Закрываем текущее окно настроек
+                                                settingsDialog.dispose();
+
+                                                // Снова открываем окно настроек
+                                                settingsItem.doClick();
                                             }
                                         });
 
@@ -642,16 +668,18 @@ public class CreateConfigAction extends AnAction {
                                                 deleteButton.addActionListener(new ActionListener() {
                                                     @Override
                                                     public void actionPerformed(ActionEvent e) {
-                                                        // Удаляем группу из предпочтений
-                                                        removePreferenceGroup(originalGroupName);
-                                                        // Удаляем всю панель groupPanel
-                                                        groupsPanel.remove(groupPanel);
-                                                        groupsPanel.revalidate();
-                                                        groupsPanel.repaint();
+                                                        // Попытка удаления группы из предпочтений
+                                                        // Если группа была успешно удалена, удаляем соответствующую панель и уменьшаем высоту окна
+                                                        if (removePreferenceGroup(originalGroupName, tabbedPane)) {
+                                                            // Удаляем всю панель groupPanel
+                                                            groupsPanel.remove(groupPanel);
+                                                            groupsPanel.revalidate();
+                                                            groupsPanel.repaint();
 
-                                                        // Уменьшаем высоту окна
-                                                        Dimension currentSize = specialParametersDialog.getSize();
-                                                        specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                                            // Уменьшаем высоту окна
+                                                            Dimension currentSize = specialParametersDialog.getSize();
+                                                            specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                                        }
                                                     }
                                                 });
 
@@ -696,16 +724,18 @@ public class CreateConfigAction extends AnAction {
                                                     deleteButton.addActionListener(new ActionListener() {
                                                         @Override
                                                         public void actionPerformed(ActionEvent e) {
-                                                            // Удаляем группу из предпочтений
-                                                            removePreferenceGroup(originalGroupName);
-                                                            // Удаляем всю панель groupPanel
-                                                            groupsPanel.remove(groupPanel);
-                                                            groupsPanel.revalidate();
-                                                            groupsPanel.repaint();
+                                                            // Попытка удаления группы из предпочтений
+                                                            // Если группа была успешно удалена, удаляем соответствующую панель и уменьшаем высоту окна
+                                                            if (removePreferenceGroup(originalGroupName, tabbedPane)) {
+                                                                // Удаляем всю панель groupPanel
+                                                                groupsPanel.remove(groupPanel);
+                                                                groupsPanel.revalidate();
+                                                                groupsPanel.repaint();
 
-                                                            // Уменьшаем высоту окна
-                                                            Dimension currentSize = specialParametersDialog.getSize();
-                                                            specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                                                // Уменьшаем высоту окна
+                                                                Dimension currentSize = specialParametersDialog.getSize();
+                                                                specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
+                                                            }
                                                         }
                                                     });
 
@@ -1017,11 +1047,55 @@ public class CreateConfigAction extends AnAction {
         prefs.put("groups", existingGroups);
     }
 
-    private void removePreferenceGroup(String groupName) {
+    private boolean removePreferenceGroup(String groupName, JTabbedPane tabbedPane) {
         Preferences prefs = Preferences.userNodeForPackage(this.getClass());
         String existingGroups = prefs.get("groups", "");
-        existingGroups = existingGroups.replace(groupName + ";", "");
-        prefs.put("groups", existingGroups);
+
+        if (groupHasParameters(groupName)) {
+            // Создаем JOptionPane с пользовательскими кнопками
+            String[] options = {"Да", "Отмена"};
+            int dialogResult = JOptionPane.showOptionDialog(
+                    null,
+                    "Группа содержит параметры. Вы уверены, что хотите удалить группу?",
+                    "Подтверждение",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (dialogResult == 0) {  // Если выбрана опция "Да"
+                existingGroups = existingGroups.replace(groupName + ";", "");
+                prefs.put("groups", existingGroups);
+                prefs.remove(groupName);  // Удаляем параметр с названием группы из Preferences
+                removeTab(groupName, tabbedPane);
+                return true;
+            } else {
+                // Если выбрана опция "Отмена" или диалог был закрыт, возвращаем false
+                return false;
+            }
+        } else {
+            existingGroups = existingGroups.replace(groupName + ";", "");
+            prefs.put("groups", existingGroups);
+            prefs.remove(groupName);  // Удаляем параметр с названием группы из Preferences
+            removeTab(groupName, tabbedPane);
+            return true;
+        }
+    }
+
+    private boolean groupHasParameters(String groupName) {
+        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+        String groupParameters = prefs.get(groupName, null);
+        return groupParameters != null && !groupParameters.isEmpty() && !groupParameters.equals("{}");
+    }
+
+    private void removeTab(String groupName, JTabbedPane tabbedPane) {
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            if (tabbedPane.getTitleAt(i).equals(groupName)) {
+                tabbedPane.removeTabAt(i);
+                break;
+            }
+        }
     }
 
     private boolean isGroupExists(String groupName) {
@@ -1091,11 +1165,13 @@ public class CreateConfigAction extends AnAction {
         private boolean isPushed;
         private JTable table;
         private DefaultTableModel model;
+        private JTabbedPane tabbedPane;
 
-        public IconEditor(JTable table, DefaultTableModel model) {
+        public IconEditor(JTable table, DefaultTableModel model, JTabbedPane tabbedPane) {
             super(new JCheckBox());
             this.table = table;
             this.model = model;
+            this.tabbedPane = tabbedPane;
             button = new JButton();
             button.setOpaque(true);
             button.setIcon(AllIcons.Actions.GC);
@@ -1149,11 +1225,31 @@ public class CreateConfigAction extends AnAction {
                     String name = (String) model.getValueAt(selectedRow, 1);
                     currentParameters.remove(name);
                     model.removeRow(selectedRow);
+
+                    // Удаление из Preferences
+                    Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+                    Gson gson = new Gson();
+                    String currentTab = tabbedPane.getTitleAt(tabbedPane.getSelectedIndex());
+                    if (currentTab.equals("Основные")) {
+                        currentTab = PREF_PARAMETERS;
+                    }
+                    String json = prefs.get(currentTab, "");
+                    Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+                    Map<String, Parameter> params = gson.fromJson(json, type);
+                    params.remove(name);
+                    json = gson.toJson(params, type);
+                    prefs.put(currentTab, json);
+                    try {
+                        prefs.flush();
+                    } catch (BackingStoreException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
             isPushed = false;
             return new String(label);
         }
+
 
         public boolean stopCellEditing() {
             isPushed = false;
