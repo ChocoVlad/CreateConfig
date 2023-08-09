@@ -111,8 +111,220 @@ public class CreateConfigAction extends AnAction {
             if (!configFile.isDirectory()) {
                 // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
+
+                // Получение групп из Preferences
+                Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+                String groups = prefs.get("groups", "");
+                String[] groupNames = groups.split(";");
+
+                // Объявляем общий компонент меню
+                JMenuItem menuItem;
+
+                if (groupNames.length > 0 && !groups.isEmpty()) {
+                    // Создаем JMenu, если есть группы
+                    menuItem = new JMenu(fileName);
+                    // Добавляем слушатель на пункт меню
+                    menuItem.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mouseClicked(MouseEvent e) {
+                            // Создаем приложение
+                            Application application = ApplicationManager.getApplication();
+                            // Запускаем операцию записи
+                            application.runWriteAction(() -> {
+                                try {
+                                    // Создаем файл конфигурации в родительской директории
+                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                    // Копируем содержимое из исходного файла конфигурации
+                                    destinationFile.setBinaryContent(configFile.contentsToByteArray());
+
+                                    String configName = configFile.getName();
+                                    String notificationMessage = "Установлен config: " + configName;
+                                    Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                                    Notifications.Bus.notify(notification);
+
+                                    // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
+                                    if (getPrefState(PREF_API_DATA)) {
+                                        VirtualFile dataAssertsDirectory = parentDirectory.findChild("data_asserts");
+                                        if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
+                                            VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
+                                            if (dataFile != null) {
+                                                try {
+                                                    VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                                    destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                                } catch (IOException ex) {
+                                                    ex.printStackTrace();
+                                                    notification = new Notification("ConfigCopy", "Ошибка", "Ошибка копирования файла data.py", NotificationType.ERROR);
+                                                    Notifications.Bus.notify(notification);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // Проставляем комментарий в новом файле config.ini
+                                    if (getPrefState(PREF_CHECK_CONFIG)) {
+                                        String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
+                                        try {
+                                            VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                            if (configFile != null) {
+                                                String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
+                                                currentContent = currentContent.replaceFirst("^\\s*", "");
+                                                String newContent = copiedFromComment + "\n" + currentContent;
+                                                configFile.setBinaryContent(newContent.getBytes(StandardCharsets.UTF_8));
+                                            }
+                                        } catch (IOException ex) {
+                                            ex.printStackTrace();
+                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                            Notifications.Bus.notify(notification);
+                                        }
+                                    }
+                                    // Сохраняем параметры конфигурации
+                                    saveConfigParameters(project, "Основные");
+                                    popupMenu.setVisible(false);
+                                } catch (IOException ex) {
+                                    // Выводим ошибку в консоль
+                                    ex.printStackTrace();
+                                }
+                            });
+                        }
+                    });
+                    for (String groupName : groupNames) {
+                        JMenuItem groupItem = new JMenuItem(groupName);
+                        groupItem.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                // Создаем приложение
+                                Application application = ApplicationManager.getApplication();
+                                // Запускаем операцию записи
+                                application.runWriteAction(() -> {
+                                    try {
+                                        // Создаем файл конфигурации в родительской директории
+                                        VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                        // Копируем содержимое из исходного файла конфигурации
+                                        destinationFile.setBinaryContent(configFile.contentsToByteArray());
+
+                                        String configName = configFile.getName();
+                                        String notificationMessage = "Установлен config: " + configName;
+                                        Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                                        Notifications.Bus.notify(notification);
+
+                                        // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
+                                        if (getPrefState(PREF_API_DATA)) {
+                                            VirtualFile dataAssertsDirectory = parentDirectory.findChild("data_asserts");
+                                            if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
+                                                VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
+                                                if (dataFile != null) {
+                                                    try {
+                                                        VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                                        destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                                    } catch (IOException ex) {
+                                                        ex.printStackTrace();
+                                                        notification = new Notification("ConfigCopy", "Ошибка", "Ошибка копирования файла data.py", NotificationType.ERROR);
+                                                        Notifications.Bus.notify(notification);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // Проставляем комментарий в новом файле config.ini
+                                        if (getPrefState(PREF_CHECK_CONFIG)) {
+                                            String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
+                                            try {
+                                                VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                                if (configFile != null) {
+                                                    String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
+                                                    currentContent = currentContent.replaceFirst("^\\s*", "");
+                                                    String newContent = copiedFromComment + "\n" + currentContent;
+                                                    configFile.setBinaryContent(newContent.getBytes(StandardCharsets.UTF_8));
+                                                }
+                                            } catch (IOException ex) {
+                                                ex.printStackTrace();
+                                                notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                                Notifications.Bus.notify(notification);
+                                            }
+                                        }
+                                        // Сохраняем параметры конфигурации
+                                        saveConfigParameters(project, "Основные");
+                                        popupMenu.setVisible(false);
+                                    } catch (IOException ex) {
+                                        // Выводим ошибку в консоль
+                                        ex.printStackTrace();
+                                    }
+                                });
+                                // Сохраняем параметры конфигурации
+                                saveConfigParameters(project, groupName);
+                            }
+                        });
+                        menuItem.add(groupItem);
+                    }
+                } else {
+                    // Создаем JMenuItem, если нет групп
+                    menuItem = new JMenuItem(fileName);
+                    menuItem.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            // Создаем приложение
+                            Application application = ApplicationManager.getApplication();
+                            // Запускаем операцию записи
+                            application.runWriteAction(() -> {
+                                try {
+                                    // Создаем файл конфигурации в родительской директории
+                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                    // Копируем содержимое из исходного файла конфигурации
+                                    destinationFile.setBinaryContent(configFile.contentsToByteArray());
+
+                                    String configName = configFile.getName();
+                                    String notificationMessage = "Установлен config: " + configName;
+                                    Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
+                                    Notifications.Bus.notify(notification);
+
+                                    // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
+                                    if (getPrefState(PREF_API_DATA)) {
+                                        VirtualFile dataAssertsDirectory = parentDirectory.findChild("data_asserts");
+                                        if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
+                                            VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
+                                            if (dataFile != null) {
+                                                try {
+                                                    VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
+                                                    destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
+                                                } catch (IOException ex) {
+                                                    ex.printStackTrace();
+                                                    notification = new Notification("ConfigCopy", "Ошибка", "Ошибка копирования файла data.py", NotificationType.ERROR);
+                                                    Notifications.Bus.notify(notification);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // Проставляем комментарий в новом файле config.ini
+                                    if (getPrefState(PREF_CHECK_CONFIG)) {
+                                        String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
+                                        try {
+                                            VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                            if (configFile != null) {
+                                                String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
+                                                currentContent = currentContent.replaceFirst("^\\s*", "");
+                                                String newContent = copiedFromComment + "\n" + currentContent;
+                                                configFile.setBinaryContent(newContent.getBytes(StandardCharsets.UTF_8));
+                                            }
+                                        } catch (IOException ex) {
+                                            ex.printStackTrace();
+                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                            Notifications.Bus.notify(notification);
+                                        }
+                                    }
+                                    // Сохраняем параметры конфигурации
+                                    saveConfigParameters(project, "Основные");
+
+                                    //Закрытие всплывающего меню
+                                    popupMenu.setVisible(false);
+                                } catch (IOException ex) {
+                                    // Выводим ошибку в консоль
+                                    ex.printStackTrace();
+                                }
+                            });
+                        }
+                    });
+                }
+
                 // Создаем пункт меню с именем файла и иконкой
-                JMenuItem menuItem = new JMenuItem(fileName, AllIcons.General.CopyHovered);
+                menuItem.setIcon(AllIcons.General.CopyHovered);
 
                 // Проверяем наличие файла config.ini
                 VirtualFile configOldFile = parentDirectory.findChild("config.ini");
@@ -138,70 +350,6 @@ public class CreateConfigAction extends AnAction {
                         ex.printStackTrace();
                     }
                 }
-
-                // Добавляем слушатель на пункт меню
-                menuItem.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        // Создаем приложение
-                        Application application = ApplicationManager.getApplication();
-                        // Запускаем операцию записи
-                        application.runWriteAction(() -> {
-                            try {
-                                // Создаем файл конфигурации в родительской директории
-                                VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
-                                // Копируем содержимое из исходного файла конфигурации
-                                destinationFile.setBinaryContent(configFile.contentsToByteArray());
-
-                                String configName = configFile.getName();
-                                String notificationMessage = "Установлен config: " + configName;
-                                Notification notification = new Notification("ConfigCopy", "Успешно", notificationMessage, NotificationType.INFORMATION);
-                                Notifications.Bus.notify(notification);
-
-                                // Сохраняем параметры конфигурации
-                                saveConfigParameters(project);
-
-                                // Если флажок API_DATA установлен, то копируем соответствующий файл из папки "data_asserts"
-                                if (getPrefState(PREF_API_DATA)) {
-                                    VirtualFile dataAssertsDirectory = parentDirectory.findChild("data_asserts");
-                                    if (dataAssertsDirectory != null && dataAssertsDirectory.isDirectory()) {
-                                        VirtualFile dataFile = dataAssertsDirectory.findChild(fileName + ".py");
-                                        if (dataFile != null) {
-                                            try {
-                                                VirtualFile destinationDataFile = currentFile.getParent().createChildData(this, "data.py");
-                                                destinationDataFile.setBinaryContent(dataFile.contentsToByteArray());
-                                            } catch (IOException ex) {
-                                                ex.printStackTrace();
-                                                notification = new Notification("ConfigCopy", "Ошибка", "Ошибка копирования файла data.py", NotificationType.ERROR);
-                                                Notifications.Bus.notify(notification);
-                                            }
-                                        }
-                                    }
-                                }
-                                // Проставляем комментарий в новом файле config.ini
-                                if (getPrefState(PREF_CHECK_CONFIG)) {
-                                    String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
-                                    try {
-                                        VirtualFile configFile = currentFile.getParent().findChild("config.ini");
-                                        if (configFile != null) {
-                                            String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
-                                            currentContent = currentContent.replaceFirst("^\\s*", "");
-                                            String newContent = copiedFromComment + "\n" + currentContent;
-                                            configFile.setBinaryContent(newContent.getBytes(StandardCharsets.UTF_8));
-                                        }
-                                    } catch (IOException ex) {
-                                        ex.printStackTrace();
-                                        notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
-                                        Notifications.Bus.notify(notification);
-                                    }
-                                }
-                            } catch (IOException ex) {
-                                // Выводим ошибку в консоль
-                                ex.printStackTrace();
-                            }
-                        });
-                    }
-                });
                 // Добавляем пункт меню в список компонентов меню
                 menuComponents.add(menuItem);
             }
@@ -841,7 +989,7 @@ public class CreateConfigAction extends AnAction {
                                 Gson gson = new Gson();
                                 if (groupName.equals("Основные")) {
                                     preferences.put(PREF_PARAMETERS, gson.toJson(currentParameters));
-                                    saveConfigParameters(project);
+                                    saveConfigParameters(project, "Основные");
                                 } else {
                                     preferences.put(groupName, gson.toJson(currentParameters));
                                 }
@@ -937,7 +1085,7 @@ public class CreateConfigAction extends AnAction {
     }
 
     // Метод сохранения параметров конфигурации
-    private void saveConfigParameters(Project project) {
+    private void saveConfigParameters(Project project, String groupName) {
         VirtualFile[] selectedFiles = FileEditorManager.getInstance(project).getSelectedFiles();
         if (selectedFiles.length == 0) {
             return;
@@ -978,7 +1126,12 @@ public class CreateConfigAction extends AnAction {
 
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     Gson gson = new Gson();
-                    String jsonParameters = preferences.get(PREF_PARAMETERS, "");
+                    String jsonParameters;
+                    if (groupName.equals("Основные")) {
+                        jsonParameters = preferences.get(PREF_PARAMETERS, "");
+                    } else {
+                        jsonParameters = preferences.get(groupName, "");
+                    }
                     currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
                     for (String key : currentParameters.keySet()) {
                         Parameter parameter = currentParameters.get(key);
