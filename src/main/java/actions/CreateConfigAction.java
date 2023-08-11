@@ -19,6 +19,7 @@ import com.intellij.openapi.wm.WindowManager;
 import org.ini4j.Wini;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.*;
@@ -30,8 +31,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -54,6 +53,8 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
     private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP";
+    private int activeTabIndex = 0;
+    private int countTabsMain = 0;
 
     private JDialog settingsDialogOpen;
     private JDialog specialParametersDialogOpen;
@@ -364,11 +365,16 @@ public class CreateConfigAction extends AnAction {
         settingsItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                countTabsMain = 0;
                 // Создание диалога для отображения панели
                 if (settingsDialogOpen == null || !settingsDialogOpen.isShowing()) {
 
                     Map<String, DefaultTableModel> groupModels = new HashMap<>();
                     JTabbedPane tabbedPane = new JTabbedPane();
+
+                    Window parent = WindowManager.getInstance().getFrame(project);
+                    settingsDialog = new JDialog(parent);
+                    settingsDialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
 
                     // Получение групп из Preferences
                     Preferences prefs = Preferences.userNodeForPackage(this.getClass());
@@ -377,586 +383,110 @@ public class CreateConfigAction extends AnAction {
 
                     // Создание вкладки для каждой группы
                     for (String groupName : groupNames) {
-                        if (!groupName.trim().isEmpty()) {
-                            Preferences preferences = Preferences.userNodeForPackage(getClass());
-                            Gson gson = new Gson();
-                            if (groupName.equals("Основные")) {
-                                currentParameters = new HashMap<>(parameters);
-                            } else {
-                                String jsonParameters = preferences.get(groupName, "");
-                                currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
-                            }
-                            JPanel panel = new JPanel();
-                            panel.setLayout(new BorderLayout());
+                        createTab(groupName, tabbedPane, project, groupModels, false);
+                    }
+                    addPlusTab(tabbedPane);
+                    // Добавление обработчика изменений, чтобы открыть всплывающее окно, когда выбрана вкладка "+"
+                    tabbedPane.addChangeListener(new ChangeListener() {
+                        @Override
+                        public void stateChanged(ChangeEvent e) {
+                            int selectedIndex = tabbedPane.getSelectedIndex();
+                            if (selectedIndex == countTabsMain - 1) {
+                                tabbedPane.setSelectedIndex(activeTabIndex);
+                                // Логика для отображения всплывающего окна для добавления новой группы
+                                JDialog addGroupDialog = new JDialog(settingsDialog, "", false);
+                                addGroupDialog.setUndecorated(true);
+                                addGroupDialog.setSize(300, 40); // Изменил высоту окна, чтобы сделать его более узким
+                                addGroupDialog.setLayout(new BorderLayout());
 
-                            Object[][] data = (currentParameters != null) ? new Object[currentParameters.size()][5] : new Object[0][5];
-                            String[] columnNames = {" ", "Название", "Значение", "Секция", "", "-"};
+                                GridBagLayout layout = new GridBagLayout();
+                                addGroupDialog.setLayout(layout);
+                                GridBagConstraints constraints = new GridBagConstraints();
 
-                            if (currentParameters != null) {
-                                int i = 0;
-                                for (Map.Entry<String, Parameter> entry : currentParameters.entrySet()) {
-                                    data[i][0] = entry.getValue().isActive();
-                                    data[i][1] = entry.getKey();
-                                    data[i][2] = entry.getValue().getValue();
-                                    data[i][3] = entry.getValue().getSection();
-                                    data[i][4] = AllIcons.Actions.GC;
-                                    i++;
-                                }
-                            }
+                                // Текстовое поле для ввода имени группы
+                                PlaceholderTextField groupNameField = new PlaceholderTextField("Введите название группы");
+                                constraints.fill = GridBagConstraints.HORIZONTAL;
+                                constraints.weightx = 0.99;
+                                constraints.gridx = 0;
+                                addGroupDialog.add(groupNameField, constraints);
 
-                            // Создаем модель таблицы
-                            DefaultTableModel model = new DefaultTableModel(data, columnNames) {
-                                @Override
-                                public Class<?> getColumnClass(int columnIndex) {
-                                    switch (columnIndex) {
-                                        case 0:
-                                            return Boolean.class;
-                                        case 1:
-                                        case 2:
-                                        case 3:
-                                        case 4:
-                                        case 5:
-                                            return Object.class;
-                                        default:
-                                            return super.getColumnClass(columnIndex);
-
-                                    }
-                                }
-
-                                @Override
-                                public void removeRow(int row) {
-                                    if (getRowCount() > 1) {
-                                        super.removeRow(row);
-                                    }
-                                }
-                            };
-
-                            // Добавляем пустую строку в конец модели таблицы
-                            model.addRow(new Object[]{null, null, null, null, null});
-
-                            JTable table = new JTable(model);
-                            table.getTableHeader().setReorderingAllowed(false);
-                            table.getColumn("-").setCellRenderer(new IconRenderer());
-                            table.getColumn("-").setCellEditor(new IconEditor(table, model, tabbedPane));
-                            table.getColumnModel().getColumn(0).setMaxWidth(40);
-                            table.getColumnModel().getColumn(5).setMaxWidth(60);
-                            table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
-                                private JTextField hiddenTextField = new JTextField();
-                                private CustomComboBox comboBoxEditor = new CustomComboBox();
-
-                                @Override
-                                public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-                                    String cellValue = (String) value;
-                                    if (cellValue.contains("%n")) {
-                                        comboBoxEditor.removeAllItems();
-                                        String[] items = cellValue.split("%n");
-                                        for (String item : items) {
-                                            comboBoxEditor.addItem(item);
-                                        }
-                                        comboBoxEditor.addFocusListener(new FocusAdapter() {
-                                            @Override
-                                            public void focusLost(FocusEvent e) {
-                                                super.focusLost(e);
-                                                stopCellEditing();
-                                            }
-                                        });
-                                        editorComponent = comboBoxEditor;
-                                        delegate = new EditorDelegate() {
-                                            @Override
-                                            public void setValue(Object value) {
-                                                comboBoxEditor.setSelectedItem(value);
-                                                hiddenTextField.setText((value != null) ? value.toString() : "");
-                                            }
-
-                                            @Override
-                                            public Object getCellEditorValue() {
-                                                String selectedValue = (String) comboBoxEditor.getSelectedItem();
-                                                StringBuilder cellValue = new StringBuilder(selectedValue);
-                                                for (int i = 0; i < comboBoxEditor.getItemCount(); i++) {
-                                                    String item = (String) comboBoxEditor.getItemAt(i);
-                                                    if (!item.equals(selectedValue)) {
-                                                        cellValue.append("%n").append(item);
-                                                    }
-                                                }
-                                                hiddenTextField.setText(cellValue.toString());
-                                                return hiddenTextField.getText();
-                                            }
-                                        };
-                                    } else {
-                                        JTextField textField = new JTextField();
-                                        editorComponent = textField;
-                                        delegate = new EditorDelegate() {
-                                            @Override
-                                            public void setValue(Object value) {
-                                                textField.setText((value != null) ? value.toString().split("%n")[0] : "");
-                                            }
-
-                                            @Override
-                                            public Object getCellEditorValue() {
-                                                return textField.getText();
-                                            }
-                                        };
-                                    }
-                                    return super.getTableCellEditorComponent(table, value, isSelected, row, column);
-                                }
-                            });
-
-                            table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
-                                @Override
-                                public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                                    if (value instanceof String) {
-                                        String cellValue = (String) value;
-                                        if (cellValue.contains("%n")) {
-                                            value = cellValue.split("%n")[0];
-                                        }
-                                    }
-                                    return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                                }
-                            });
-                            table.getColumnModel().getColumn(2).setCellRenderer(new CustomCellRenderer());
-
-                            // Создаем вертикальный отступ
-                            Component verticalStrut = Box.createVerticalStrut(5);
-
-                            // Устанавливаем высоту строки последней строки на 1 пиксель
-                            int lastRowIndex = table.getRowCount() - 1;
-                            table.setRowHeight(lastRowIndex, 1);
-                            table.addFocusListener(new FocusAdapter() {
-                                @Override
-                                public void focusLost(FocusEvent e) {
-                                    if (table.isEditing() && !(table.getEditorComponent() instanceof JComboBox || table.getEditorComponent() instanceof JButton)) {
-                                        table.getCellEditor().stopCellEditing();
-                                    }
-                                }
-                            });
-
-                            JScrollPane scrollPane = new JScrollPane(table);
-                            panel.add(scrollPane, BorderLayout.NORTH);
-                            panel.add(verticalStrut, BorderLayout.CENTER);
-
-                            JPanel inputPanel = new JPanel();
-                            inputPanel.setLayout(new GridLayout(1, 4, 5, 0));
-
-                            JTextField nameField = new JTextField();
-                            nameField.setPreferredSize(new Dimension(200, 30));
-                            inputPanel.add(labeledField("Название", nameField));
-
-                            JTextField valueField = new JTextField();
-                            valueField.setPreferredSize(new Dimension(200, 30));
-                            inputPanel.add(labeledField("Значение", valueField));
-
-                            JTextField sectionField = new JTextField();
-                            sectionField.setPreferredSize(new Dimension(200, 30));
-                            inputPanel.add(labeledField("Секция", sectionField));
-
-                            table.getColumnModel().getColumn(4).setCellRenderer(new EditButtonRenderer());
-                            table.getColumnModel().getColumn(4).setCellEditor(new EditButtonEditor(table, model, nameField, valueField, sectionField));
-                            table.getColumnModel().getColumn(4).setMaxWidth(60);
-                            JButton addButton = new JButton("Добавить параметр");
-                            addButton.addActionListener(new ActionListener() {
-                                @Override
-                                public void actionPerformed(ActionEvent e) {
-                                    String name = nameField.getText();
-                                    String value = valueField.getText();
-                                    String section = sectionField.getText();
-
-                                    // Обнуляем рамку всех полей перед проверкой
-                                    nameField.setBorder(new JTextField().getBorder());
-                                    valueField.setBorder(new JTextField().getBorder());
-                                    sectionField.setBorder(new JTextField().getBorder());
-                                    Color newColor = new Color(204, 71, 66, 255);
-                                    if (name.isEmpty() || value.isEmpty() || section.isEmpty()) {
-                                        if (name.isEmpty()) {
-                                            nameField.setBorder(new GradientBorder(newColor));
-                                        }
-                                        if (value.isEmpty()) {
-                                            valueField.setBorder(new GradientBorder(newColor));
-                                        }
-                                        if (section.isEmpty()) {
-                                            sectionField.setBorder(new GradientBorder(newColor));
-                                        }
-                                    } else {
-                                        String currentTab = tabbedPane.getTitleAt(tabbedPane.getSelectedIndex());
-                                        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
-                                        if (currentTab.equals("Основные")) {
-                                            currentTab = PREF_PARAMETERS;
-                                        }
-                                        Map<String, Parameter> currentParameters = gson.fromJson(preferences.get(currentTab, ""), type);
-                                        if (currentParameters == null) {
-                                            currentParameters = new HashMap<>();
-                                        }
-                                        if (currentParameters.containsKey(name)) {
-                                            Parameter existingParam = currentParameters.get(name);
-                                            if (checkStrings(existingParam.getValue(), value) && existingParam.getSection().equals(section)) {
-                                                // Если значения value и section равны существующему параметру,
-                                                // очищаем поля и прекращаем обработку события
-                                                nameField.setText("");
-                                                valueField.setText("");
-                                                sectionField.setText("");
-                                                return;
-                                            }
-                                            Object[] options = {"Подтвердить", "Отмена"};
-                                            int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
-                                                    "Вы собираетесь изменить существующий параметр \"" + name + "\".",
-                                                    "Подтвердите изменение",
-                                                    JOptionPane.YES_NO_OPTION,
-                                                    JOptionPane.WARNING_MESSAGE,
-                                                    null,
-                                                    options,
-                                                    options[0]);
-                                            if (dialogResult == JOptionPane.YES_OPTION) {
-                                                // Ищем строку с таким же именем и удаляем её
-                                                for (int i = 0; i < model.getRowCount(); i++) {
-                                                    if (model.getValueAt(i, 1).equals(name)) {
-                                                        model.removeRow(i);
-                                                        break;
-                                                    }
-                                                }
-
-                                                // Удаляем старое значение параметра из currentParameters
-                                                currentParameters.remove(name);
-
-                                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                                Parameter newParam = new Parameter(value, section, true);
-                                                currentParameters.put(name, newParam);
-                                                // Сохраняем обновленные параметры обратно в Preferences
-                                                String json = gson.toJson(currentParameters, type);
-                                                preferences.put(currentTab, json);
-                                            }
-                                        } else {
-                                            model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
-                                            Parameter newParam = new Parameter(value, section, true);
-                                            currentParameters.put(name, newParam);
-                                            // Сохраняем обновленные параметры обратно в Preferences
-                                            String json = gson.toJson(currentParameters, type);
-                                            preferences.put(currentTab, json);
-                                        }
-
-                                        nameField.setText("");
-                                        valueField.setText("");
-                                        sectionField.setText("");
-                                    }
-                                }
-                            });
-
-                            inputPanel.add(addButton);
-
-                            Window parent = WindowManager.getInstance().getFrame(project);
-                            settingsDialog = new JDialog(parent);
-                            settingsDialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
-
-                            // Добавляем кнопку "Специальные параметры"
-                            JButton specialParametersButton = new JButton("Специальные параметры", AllIcons.General.GearPlain);
-                            specialParametersButton.addActionListener(new ActionListener() {
-                                @Override
-                                public void actionPerformed(ActionEvent e) {
-                                    if (specialParametersDialogOpen == null || !specialParametersDialogOpen.isShowing()) {
-                                        JCheckBox apiDataCheckBox = new JCheckBox("API_DATA");
-                                        apiDataCheckBox.setSelected(getPrefState(PREF_API_DATA));
-                                        apiDataCheckBox.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
-                                            }
-                                        });
-                                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
-
-                                        JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
-                                        testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
-                                        testFilesCheckBox.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
-                                            }
-                                        });
-                                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
-
-                                        JCheckBox checkConfigCheckBox = new JCheckBox("CHECK_CONFIG");
-                                        checkConfigCheckBox.setSelected(getPrefState(PREF_CHECK_CONFIG));
-                                        checkConfigCheckBox.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
-                                            }
-                                        });
-                                        checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
-
-                                        JCheckBox checkTooltipParameterBox = new JCheckBox("TOOLTIP");
-                                        checkTooltipParameterBox.setSelected(getPrefState(PREF_TOOLTIP_PARAMETER, true));
-                                        checkTooltipParameterBox.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
-                                            }
-                                        });
-                                        checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
-                                        JDialog specialParametersDialog = new JDialog(settingsDialog);
-
-                                        JButton saveButton = new JButton("ОК");
-                                        saveButton.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
-                                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
-                                                setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
-                                                setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
-                                                specialParametersDialog.dispose();
-                                                // Закрываем текущее окно настроек
-                                                settingsDialog.dispose();
-
-                                                // Снова открываем окно настроек
-                                                settingsItem.doClick();
-                                            }
-                                        });
-
-                                        JPanel checkBoxPanel = new JPanel(new GridBagLayout());
-                                        checkBoxPanel.setBorder(new EmptyBorder(10, 10, 5, 10));
-                                        GridBagConstraints gbc = new GridBagConstraints();
-                                        gbc.gridwidth = GridBagConstraints.REMAINDER;
-                                        gbc.fill = GridBagConstraints.HORIZONTAL;
-                                        checkBoxPanel.add(apiDataCheckBox, gbc);
-                                        checkBoxPanel.add(testFilesCheckBox, gbc);
-                                        checkBoxPanel.add(checkConfigCheckBox, gbc);
-                                        checkBoxPanel.add(checkTooltipParameterBox, gbc);
-
-                                        // Добавляем раздел "Группы"
-                                        JPanel groupsPanel = new JPanel(new GridBagLayout());
-                                        GridBagConstraints groupsGbc = new GridBagConstraints();
-                                        groupsGbc.gridwidth = GridBagConstraints.REMAINDER;
-                                        groupsGbc.fill = GridBagConstraints.HORIZONTAL;
-
-                                        // Создаем общую панель для групп с рамкой
-                                        JPanel groupsContainer = new JPanel(new GridBagLayout());
-                                        groupsContainer.setBorder(BorderFactory.createTitledBorder("ГРУППЫ")); // Добавляем рамку с заголовком
-
-                                        // Создаем макет для размещения компонентов внутри общей панели
-                                        GridBagConstraints containerGbc = new GridBagConstraints();
-                                        containerGbc.gridwidth = GridBagConstraints.REMAINDER;
-                                        containerGbc.fill = GridBagConstraints.HORIZONTAL;
-
-                                        // Добавляем панель с группами
-                                        groupsContainer.add(groupsPanel, containerGbc);
-
-                                        // Панель для ввода новой группы (inputPanel2) с полем и кнопкой
-                                        JPanel inputPanel2 = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                                        JTextField newGroupField = new JTextField();
-                                        newGroupField.setPreferredSize(new Dimension(150, 30));
-                                        JButton acceptButton = new JButton();
-                                        acceptButton.setIcon(AllIcons.Actions.MenuSaveall);
-                                        acceptButton.setPreferredSize(new Dimension(30, 30));
-                                        inputPanel2.add(newGroupField);
-                                        inputPanel2.add(acceptButton);
-                                        groupsContainer.add(inputPanel2, containerGbc); // Добавляем панель для ввода в общую панель
-
-                                        // Добавляем слушатель к текстовому полю
-                                        newGroupField.getDocument().addDocumentListener(new DocumentListener() {
-                                            @Override
-                                            public void insertUpdate(DocumentEvent e) {
-                                                checkField();
-                                            }
-
-                                            @Override
-                                            public void removeUpdate(DocumentEvent e) {
-                                                checkField();
-                                            }
-
-                                            @Override
-                                            public void changedUpdate(DocumentEvent e) {
-                                                checkField();
-                                            }
-
-                                            private void checkField() {
-                                                String groupName = newGroupField.getText().trim();
-
-                                                // Удаляем красную рамку, если текстовое поле не пусто
-                                                if (!groupName.isEmpty()) {
-                                                    newGroupField.setBorder(new JTextField().getBorder());
-                                                }
-                                            }
-                                        });
-
-                                        int rowHeight = 28; // Высота строки для каждой группы
-                                        int initialNumberOfGroups = 0; // Начальное количество групп
-                                        int maxTextLength = 20; // Максимальная длина текста
+                                // Кнопка для добавления группы
+                                JButton addGroupButton = new JButton(); // Создание кнопки без текста
+                                addGroupButton.setIcon(AllIcons.ToolbarDecorator.AddFolder);
+                                constraints.weightx = 0.01;
+                                constraints.gridx = 1;
+                                addGroupButton.addActionListener(new ActionListener() {
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        // Логика для сохранения новой группы будет добавлена здесь
+                                        String newGroupName = groupNameField.getText().trim();
                                         Color newColor = new Color(204, 71, 66, 255);
+                                        if (!newGroupName.isEmpty()) {
+                                            // Получение существующих групп из Preferences
+                                            Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+                                            String existingGroups = prefs.get("groups", "");
 
-                                        // Подтягиваем группы из Preferences
-                                        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
-                                        String existingGroups = prefs.get("groups", "");
-                                        String[] groupNames = existingGroups.split(";");
+                                            String[] groupsArray = existingGroups.split(";");
+                                            List<String> groupsList = Arrays.asList(groupsArray);
 
-                                        for (String groupName : groupNames) {
-                                            if (!groupName.trim().isEmpty()) {
-                                                initialNumberOfGroups++;
+                                            if (groupsList.contains(newGroupName)) {
+                                                // Если группа с таким именем уже существует
+                                                groupNameField.setBorder(new GradientBorder(newColor));
+                                                JToolTip toolTip = groupNameField.createToolTip();
+                                                toolTip.setTipText("Такая группа уже создана");
+                                                PopupFactory popupFactory = PopupFactory.getSharedInstance();
+                                                Point locationOnScreen = groupNameField.getLocationOnScreen();
+                                                final Popup popup = popupFactory.getPopup(groupNameField, toolTip, locationOnScreen.x, locationOnScreen.y + groupNameField.getHeight());
+                                                popup.show();
 
-                                                // Сохраняем оригинальное название для всплывающей подсказки
-                                                String originalGroupName = groupName;
-
-                                                // Обрезаем текст, если он превышает максимальную длину
-                                                if (groupName.length() > maxTextLength) {
-                                                    groupName = groupName.substring(0, maxTextLength - 3) + "...";
-                                                }
-
-                                                JLabel newGroupLabel = new JLabel(groupName);
-                                                JButton deleteButton = new JButton(AllIcons.Actions.Cancel);
-                                                deleteButton.setPreferredSize(new Dimension(15, 15)); // Устанавливаем размер кнопки
-                                                deleteButton.setContentAreaFilled(false); // Убираем заливку фона
-                                                deleteButton.setBorderPainted(false); // Убираем рамку
-                                                deleteButton.setOpaque(false); // Делаем кнопку прозрачной
-
-                                                // Устанавливаем всплывающую подсказку с оригинальным названием
-                                                newGroupLabel.setToolTipText(originalGroupName);
-
-                                                // Создаем панель для группы и кнопки удаления
-                                                JPanel groupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                                                groupPanel.add(newGroupLabel);
-                                                groupPanel.add(deleteButton);
-
-                                                // Добавляем действие для кнопки удаления
-                                                deleteButton.addActionListener(new ActionListener() {
+                                                // Закрыть всплывающую подсказку через некоторое время (например, 2 секунды)
+                                                new Timer(3000, new ActionListener() {
                                                     @Override
                                                     public void actionPerformed(ActionEvent e) {
-                                                        // Попытка удаления группы из предпочтений
-                                                        // Если группа была успешно удалена, удаляем соответствующую панель и уменьшаем высоту окна
-                                                        if (removePreferenceGroup(originalGroupName, tabbedPane)) {
-                                                            // Удаляем всю панель groupPanel
-                                                            groupsPanel.remove(groupPanel);
-                                                            groupsPanel.revalidate();
-                                                            groupsPanel.repaint();
-
-                                                            // Уменьшаем высоту окна
-                                                            Dimension currentSize = specialParametersDialog.getSize();
-                                                            specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
-                                                        }
+                                                        popup.hide();
                                                     }
-                                                });
+                                                }).start();
+                                            } else {
+                                                // Сохранение обновленных групп в Preferences
+                                                addPreferenceGroup(newGroupName);
 
-                                                groupsPanel.add(groupPanel, groupsGbc);
+                                                // Закрываем текущее окно настроек
+                                                createTab(newGroupName, tabbedPane, project, groupModels, true);
+                                                addGroupDialog.dispose();
+                                                tabbedPane.repaint();
+                                                tabbedPane.revalidate();
+                                                tabbedPane.setSelectedIndex(tabbedPane.getTabCount() - 1);
                                             }
+                                        } else {
+                                            groupNameField.setBorder(new GradientBorder(newColor));
                                         }
-                                        // Действие при нажатии на кнопку "Зеленая галка"
-                                        acceptButton.addActionListener(new ActionListener() {
-                                            @Override
-                                            public void actionPerformed(ActionEvent e) {
-                                                String groupName = newGroupField.getText().trim();
-                                                if (isGroupExists(groupName)) {
-                                                    newGroupField.setBorder(new GradientBorder(newColor));
-                                                } else if (!groupName.trim().isEmpty()) {
-                                                    // Сохраняем оригинальное название для всплывающей подсказки
-                                                    String originalGroupName = groupName;
-
-                                                    // Обрезаем текст, если он превышает максимальную длину
-                                                    if (groupName.length() > maxTextLength) {
-                                                        groupName = groupName.substring(0, maxTextLength - 3) + "...";
-                                                    }
-                                                    // Добавляем группу в предпочтения
-                                                    addPreferenceGroup(originalGroupName);
-
-                                                    JLabel newGroupLabel = new JLabel(groupName);
-
-                                                    // Устанавливаем всплывающую подсказку с оригинальным названием
-                                                    newGroupLabel.setToolTipText(originalGroupName);
-
-                                                    JButton deleteButton = new JButton(AllIcons.Actions.Cancel);
-                                                    deleteButton.setPreferredSize(new Dimension(15, 15)); // Устанавливаем размер кнопки
-                                                    deleteButton.setContentAreaFilled(false); // Убираем заливку фона
-                                                    deleteButton.setBorderPainted(false); // Убираем рамку
-                                                    deleteButton.setOpaque(false); // Делаем кнопку прозрачной
-
-                                                    // Создаем панель для группы и кнопки удаления
-                                                    JPanel groupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                                                    groupPanel.add(newGroupLabel);
-                                                    groupPanel.add(deleteButton);
-
-                                                    // Добавляем действие для кнопки удаления
-                                                    deleteButton.addActionListener(new ActionListener() {
-                                                        @Override
-                                                        public void actionPerformed(ActionEvent e) {
-                                                            // Попытка удаления группы из предпочтений
-                                                            // Если группа была успешно удалена, удаляем соответствующую панель и уменьшаем высоту окна
-                                                            if (removePreferenceGroup(originalGroupName, tabbedPane)) {
-                                                                // Удаляем всю панель groupPanel
-                                                                groupsPanel.remove(groupPanel);
-                                                                groupsPanel.revalidate();
-                                                                groupsPanel.repaint();
-
-                                                                // Уменьшаем высоту окна
-                                                                Dimension currentSize = specialParametersDialog.getSize();
-                                                                specialParametersDialog.setSize(new Dimension((int) currentSize.getWidth(), (int) currentSize.getHeight() - rowHeight));
-                                                            }
-                                                        }
-                                                    });
-
-                                                    groupsPanel.add(groupPanel, groupsGbc);
-
-                                                    // Увеличиваем высоту окна
-                                                    Dimension currentSize = specialParametersDialog.getSize();
-                                                    specialParametersDialog.setSize(new Dimension((int)currentSize.getWidth(), (int)currentSize.getHeight() + rowHeight));
-
-                                                    groupsPanel.revalidate();
-                                                    groupsPanel.repaint();
-                                                    newGroupField.setText("");
-                                                    prefs.put(groupName, "{}");
-                                                } else {
-                                                    newGroupField.setBorder(new GradientBorder(newColor)); // Устанавливаем красную рамку
-                                                }
-                                            }
-                                        });
-
-                                        // Добавляем общую панель для групп к основному контейнеру
-                                        checkBoxPanel.add(groupsContainer, gbc);
-                                        checkBoxPanel.add(saveButton, gbc);
-
-                                        // Создаем диалог для отображения панели
-                                        specialParametersDialog.setPreferredSize(new Dimension(250, 250 + rowHeight * initialNumberOfGroups));
-                                        specialParametersDialog.setSize(new Dimension(250, 250 + rowHeight * initialNumberOfGroups)); // Установите начальный размер
-                                        specialParametersDialog.setModalityType(Dialog.ModalityType.MODELESS);
-                                        specialParametersDialog.setTitle("Специальные параметры");
-                                        specialParametersDialog.getContentPane().add(checkBoxPanel);
-                                        specialParametersDialog.pack();
-
-                                        // Чтобы появился в центре родительского окна
-                                        specialParametersDialog.setLocationRelativeTo(settingsDialog);
-
-                                        // Определение действия при закрытии окна
-                                        specialParametersDialog.addWindowListener(new WindowAdapter() {
-                                            @Override
-                                            public void windowClosed(WindowEvent e) {
-                                                specialParametersDialogOpen = null;
-                                            }
-                                        });
-
-                                        specialParametersDialogOpen = specialParametersDialog;
-                                        specialParametersDialog.setVisible(true);
-                                    } else {
-                                        specialParametersDialogOpen.toFront();
                                     }
-                                }
-                            });
+                                });
 
-                            inputPanel.add(specialParametersButton);
+                                addGroupDialog.getRootPane().setDefaultButton(addGroupButton);
+                                addGroupDialog.add(addGroupButton, constraints);
 
-                            panel.add(inputPanel, BorderLayout.SOUTH);
+                                // Добавляем слушатель фокуса к окну настроек
+                                addGroupDialog.addWindowFocusListener(new WindowAdapter() {
+                                    @Override
+                                    public void windowLostFocus(WindowEvent e) {
+                                        // Если фокус уходит с окна настроек, закрываем диалоговое окно
+                                        addGroupDialog.dispose();
+                                    }
+                                });
 
-                            // Устанавливаем немодальность
-                            settingsDialog.setModalityType(Dialog.ModalityType.MODELESS);
-
-                            // Добавление вашей основной панели в центральную часть диалогового окна
-                            settingsDialog.add(panel, BorderLayout.CENTER);
-
-                            // Получаем панель содержимого и устанавливаем границу
-                            Container contentPane = settingsDialog.getContentPane();
-                            ((JComponent) contentPane).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-                            // Добавление вкладки
-                            JPanel mainTab = new JPanel();
-                            mainTab.add(panel, BorderLayout.CENTER);
-                            tabbedPane.addTab(groupName, mainTab);
-                            tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, new CustomTabRenderer(tabbedPane, groupName, tabbedPane.getTabCount() - 1));
-                            groupModels.put(groupName, model);
-
+                                Rectangle tabBounds = tabbedPane.getBoundsAt(tabbedPane.getTabCount() - 1);
+                                Point locationOnScreen = tabbedPane.getLocationOnScreen();
+                                int x = locationOnScreen.x + tabBounds.x;
+                                int y = locationOnScreen.y + tabBounds.y + tabBounds.height;
+                                addGroupDialog.setLocation(x, y);
+                                addGroupDialog.setVisible(true);
+                            } else {
+                                activeTabIndex = selectedIndex;
+                            }
                         }
-                    }
+                    });
+
                     settingsDialog.add(tabbedPane, BorderLayout.CENTER);
 
                     // Создание панели с кнопками OK и Cancel
@@ -1133,21 +663,23 @@ public class CreateConfigAction extends AnAction {
                         jsonParameters = preferences.get(groupName, "");
                     }
                     currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
-                    for (String key : currentParameters.keySet()) {
-                        Parameter parameter = currentParameters.get(key);
-                        String value = parameter.getValue();
-                        String section = parameter.getSection();
-                        Boolean active = parameter.isActive();
-                        if (active) {
-                            if (!ini.containsKey(section)) {
-                                ini.add(section);
-                            }
-                            if (!StringUtil.isEmptyOrSpaces(value)) {
-                                // Если значение содержит "%n", выберите первый элемент после разделения
-                                if (value.contains("%n")) {
-                                    value = value.split("%n")[0];
+                    if (currentParameters != null) {
+                        for (String key : currentParameters.keySet()) {
+                            Parameter parameter = currentParameters.get(key);
+                            String value = parameter.getValue();
+                            String section = parameter.getSection();
+                            Boolean active = parameter.isActive();
+                            if (active) {
+                                if (!ini.containsKey(section)) {
+                                    ini.add(section);
                                 }
-                                ini.get(section).put(key, value);
+                                if (!StringUtil.isEmptyOrSpaces(value)) {
+                                    // Если значение содержит "%n", выберите первый элемент после разделения
+                                    if (value.contains("%n")) {
+                                        value = value.split("%n")[0];
+                                    }
+                                    ini.get(section).put(key, value);
+                                }
                             }
                         }
                     }
@@ -1198,6 +730,7 @@ public class CreateConfigAction extends AnAction {
         String existingGroups = prefs.get("groups", "");
         existingGroups += groupName + ";";
         prefs.put("groups", existingGroups);
+        prefs.put(groupName, "{}");
     }
 
     private boolean removePreferenceGroup(String groupName, JTabbedPane tabbedPane) {
@@ -1245,7 +778,12 @@ public class CreateConfigAction extends AnAction {
     private void removeTab(String groupName, JTabbedPane tabbedPane) {
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             if (tabbedPane.getTitleAt(i).equals(groupName)) {
+                // Если удаляемая вкладка не первая, устанавливаем выбранной предыдущую вкладку
+                if (i > 0 && i == tabbedPane.getSelectedIndex()) {
+                    tabbedPane.setSelectedIndex(i - 1);
+                }
                 tabbedPane.removeTabAt(i);
+                countTabsMain -= 1;
                 break;
             }
         }
@@ -1721,14 +1259,20 @@ public class CreateConfigAction extends AnAction {
         // Метод для разделения строки по заданному символу-разделителю
         return str.split(String.valueOf(delimiter));
     }
+
     class CustomTabRenderer extends JPanel {
         private JLabel label;
         private JTabbedPane parentTabbedPane;
         private int tabIndex;
+        private JButton closeButton;
+        private Color originalColor;
 
         public CustomTabRenderer(JTabbedPane tabbedPane, String title, int index) {
             this.parentTabbedPane = tabbedPane;
             this.tabIndex = index;
+            this.originalColor = getBackground();
+
+            setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
             label = new JLabel();
             if (title.length() > 20) {
@@ -1738,16 +1282,47 @@ public class CreateConfigAction extends AnAction {
                 label.setText(title);
             }
 
+            label.setBorder(new EmptyBorder(0, 5, 0, 5));
             label.setBackground(getBackground());
             setOpaque(false);
             label.setOpaque(false);
 
             add(label);
 
-            addPropertyChangeListener("background", new PropertyChangeListener() {
+            // Добавляем пустой компонент для создания отступа
+            if (!title.equals("Основные")) {
+                add(Box.createRigidArea(new Dimension(5, 0)));
+            }
+            closeButton = new JButton();
+            closeButton.setIcon(AllIcons.Actions.Cancel);
+            closeButton.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
+            closeButton.setContentAreaFilled(false);
+            closeButton.setMargin(new Insets(0, 0, 0, 0));
+            closeButton.setPreferredSize(new Dimension(16, 16));
+            if (!title.equals("Основные")) {
+                closeButton.setVisible(true);
+            } else {
+                closeButton.setVisible(false);
+            }
+            add(closeButton);
+
+            closeButton.addMouseListener(new MouseAdapter() {
                 @Override
-                public void propertyChange(PropertyChangeEvent evt) {
-                    label.setBackground(getBackground());
+                public void mouseClicked(MouseEvent e) {
+                    String groupName = title;
+                    removePreferenceGroup(groupName, parentTabbedPane);
+                }
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    setBackground(Color.RED);
+                    parentTabbedPane.dispatchEvent(SwingUtilities.convertMouseEvent(label, e, parentTabbedPane));
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    setBackground(originalColor);
+                    parentTabbedPane.dispatchEvent(SwingUtilities.convertMouseEvent(label, e, parentTabbedPane));
                 }
             });
 
@@ -1775,5 +1350,447 @@ public class CreateConfigAction extends AnAction {
         public boolean contains(int x, int y) {
             return super.contains(x, y);
         }
+    }
+
+    public class PlaceholderTextField extends JTextField {
+        private String placeholder;
+
+        public PlaceholderTextField(String placeholder) {
+            this.placeholder = placeholder;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (getText().isEmpty()) { // Текст-подсказка отображается, пока текстовое поле пустое
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(Color.GRAY);
+                g2.setFont(getFont()); // Обычный шрифт
+                g2.drawString(placeholder, 10, 20); // Отрегулируйте координаты, чтобы подогнать под ваш стиль
+                g2.dispose();
+            }
+        }
+    }
+
+    public void createTab(String groupName, JTabbedPane tabbedPane, Project project, Map<String, DefaultTableModel> groupModels, Boolean preLastPosition) {
+        if (!groupName.trim().isEmpty()) {
+            Preferences preferences = Preferences.userNodeForPackage(getClass());
+            Gson gson = new Gson();
+            if (groupName.equals("Основные")) {
+                currentParameters = new HashMap<>(parameters);
+            } else {
+                String jsonParameters = preferences.get(groupName, "");
+                currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
+            }
+            JPanel panel = new JPanel();
+            panel.setLayout(new BorderLayout());
+
+            Object[][] data = (currentParameters != null) ? new Object[currentParameters.size()][5] : new Object[0][5];
+            String[] columnNames = {" ", "Название", "Значение", "Секция", "", "-"};
+
+            if (currentParameters != null) {
+                int i = 0;
+                for (Map.Entry<String, Parameter> entry : currentParameters.entrySet()) {
+                    data[i][0] = entry.getValue().isActive();
+                    data[i][1] = entry.getKey();
+                    data[i][2] = entry.getValue().getValue();
+                    data[i][3] = entry.getValue().getSection();
+                    data[i][4] = AllIcons.Actions.GC;
+                    i++;
+                }
+            }
+
+            // Создаем модель таблицы
+            DefaultTableModel model = new DefaultTableModel(data, columnNames) {
+                @Override
+                public Class<?> getColumnClass(int columnIndex) {
+                    switch (columnIndex) {
+                        case 0:
+                            return Boolean.class;
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                            return Object.class;
+                        default:
+                            return super.getColumnClass(columnIndex);
+
+                    }
+                }
+
+                @Override
+                public void removeRow(int row) {
+                    if (getRowCount() > 1) {
+                        super.removeRow(row);
+                    }
+                }
+            };
+
+            // Добавляем пустую строку в конец модели таблицы
+            model.addRow(new Object[]{null, null, null, null, null});
+
+            JTable table = new JTable(model);
+            table.getTableHeader().setReorderingAllowed(false);
+            table.getColumn("-").setCellRenderer(new IconRenderer());
+            table.getColumn("-").setCellEditor(new IconEditor(table, model, tabbedPane));
+            table.getColumnModel().getColumn(0).setMaxWidth(40);
+            table.getColumnModel().getColumn(5).setMaxWidth(60);
+            table.getColumnModel().getColumn(2).setCellEditor(new DefaultCellEditor(new JTextField()) {
+                private JTextField hiddenTextField = new JTextField();
+                private CustomComboBox comboBoxEditor = new CustomComboBox();
+
+                @Override
+                public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+                    String cellValue = (String) value;
+                    if (cellValue.contains("%n")) {
+                        comboBoxEditor.removeAllItems();
+                        String[] items = cellValue.split("%n");
+                        for (String item : items) {
+                            comboBoxEditor.addItem(item);
+                        }
+                        comboBoxEditor.addFocusListener(new FocusAdapter() {
+                            @Override
+                            public void focusLost(FocusEvent e) {
+                                super.focusLost(e);
+                                stopCellEditing();
+                            }
+                        });
+                        editorComponent = comboBoxEditor;
+                        delegate = new EditorDelegate() {
+                            @Override
+                            public void setValue(Object value) {
+                                comboBoxEditor.setSelectedItem(value);
+                                hiddenTextField.setText((value != null) ? value.toString() : "");
+                            }
+
+                            @Override
+                            public Object getCellEditorValue() {
+                                String selectedValue = (String) comboBoxEditor.getSelectedItem();
+                                StringBuilder cellValue = new StringBuilder(selectedValue);
+                                for (int i = 0; i < comboBoxEditor.getItemCount(); i++) {
+                                    String item = (String) comboBoxEditor.getItemAt(i);
+                                    if (!item.equals(selectedValue)) {
+                                        cellValue.append("%n").append(item);
+                                    }
+                                }
+                                hiddenTextField.setText(cellValue.toString());
+                                return hiddenTextField.getText();
+                            }
+                        };
+                    } else {
+                        JTextField textField = new JTextField();
+                        editorComponent = textField;
+                        delegate = new EditorDelegate() {
+                            @Override
+                            public void setValue(Object value) {
+                                textField.setText((value != null) ? value.toString().split("%n")[0] : "");
+                            }
+
+                            @Override
+                            public Object getCellEditorValue() {
+                                return textField.getText();
+                            }
+                        };
+                    }
+                    return super.getTableCellEditorComponent(table, value, isSelected, row, column);
+                }
+            });
+
+            table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+                @Override
+                public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                    if (value instanceof String) {
+                        String cellValue = (String) value;
+                        if (cellValue.contains("%n")) {
+                            value = cellValue.split("%n")[0];
+                        }
+                    }
+                    return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                }
+            });
+            table.getColumnModel().getColumn(2).setCellRenderer(new CustomCellRenderer());
+
+            // Создаем вертикальный отступ
+            Component verticalStrut = Box.createVerticalStrut(5);
+
+            // Устанавливаем высоту строки последней строки на 1 пиксель
+            int lastRowIndex = table.getRowCount() - 1;
+            table.setRowHeight(lastRowIndex, 1);
+            table.addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusLost(FocusEvent e) {
+                    if (table.isEditing() && !(table.getEditorComponent() instanceof JComboBox || table.getEditorComponent() instanceof JButton)) {
+                        table.getCellEditor().stopCellEditing();
+                    }
+                }
+            });
+
+            JScrollPane scrollPane = new JScrollPane(table);
+            panel.add(scrollPane, BorderLayout.NORTH);
+            panel.add(verticalStrut, BorderLayout.CENTER);
+
+            JPanel inputPanel = new JPanel();
+            inputPanel.setLayout(new GridLayout(1, 4, 5, 0));
+
+            JTextField nameField = new JTextField();
+            nameField.setPreferredSize(new Dimension(200, 30));
+            inputPanel.add(labeledField("Название", nameField));
+
+            JTextField valueField = new JTextField();
+            valueField.setPreferredSize(new Dimension(200, 30));
+            inputPanel.add(labeledField("Значение", valueField));
+
+            JTextField sectionField = new JTextField();
+            sectionField.setPreferredSize(new Dimension(200, 30));
+            inputPanel.add(labeledField("Секция", sectionField));
+
+            table.getColumnModel().getColumn(4).setCellRenderer(new EditButtonRenderer());
+            table.getColumnModel().getColumn(4).setCellEditor(new EditButtonEditor(table, model, nameField, valueField, sectionField));
+            table.getColumnModel().getColumn(4).setMaxWidth(60);
+            JButton addButton = new JButton("Добавить параметр");
+            addButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    String name = nameField.getText();
+                    String value = valueField.getText();
+                    String section = sectionField.getText();
+
+                    // Обнуляем рамку всех полей перед проверкой
+                    nameField.setBorder(new JTextField().getBorder());
+                    valueField.setBorder(new JTextField().getBorder());
+                    sectionField.setBorder(new JTextField().getBorder());
+                    Color newColor = new Color(204, 71, 66, 255);
+                    if (name.isEmpty() || value.isEmpty() || section.isEmpty()) {
+                        if (name.isEmpty()) {
+                            nameField.setBorder(new GradientBorder(newColor));
+                        }
+                        if (value.isEmpty()) {
+                            valueField.setBorder(new GradientBorder(newColor));
+                        }
+                        if (section.isEmpty()) {
+                            sectionField.setBorder(new GradientBorder(newColor));
+                        }
+                    } else {
+                        String currentTab = tabbedPane.getTitleAt(tabbedPane.getSelectedIndex());
+                        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+                        if (currentTab.equals("Основные")) {
+                            currentTab = PREF_PARAMETERS;
+                        }
+                        Map<String, Parameter> currentParameters = gson.fromJson(preferences.get(currentTab, ""), type);
+                        if (currentParameters == null) {
+                            currentParameters = new HashMap<>();
+                        }
+                        if (currentParameters.containsKey(name)) {
+                            Parameter existingParam = currentParameters.get(name);
+                            if (checkStrings(existingParam.getValue(), value) && existingParam.getSection().equals(section)) {
+                                // Если значения value и section равны существующему параметру,
+                                // очищаем поля и прекращаем обработку события
+                                nameField.setText("");
+                                valueField.setText("");
+                                sectionField.setText("");
+                                return;
+                            }
+                            Object[] options = {"Подтвердить", "Отмена"};
+                            int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
+                                    "Вы собираетесь изменить существующий параметр \"" + name + "\".",
+                                    "Подтвердите изменение",
+                                    JOptionPane.YES_NO_OPTION,
+                                    JOptionPane.WARNING_MESSAGE,
+                                    null,
+                                    options,
+                                    options[0]);
+                            if (dialogResult == JOptionPane.YES_OPTION) {
+                                // Ищем строку с таким же именем и удаляем её
+                                for (int i = 0; i < model.getRowCount(); i++) {
+                                    if (model.getValueAt(i, 1).equals(name)) {
+                                        model.removeRow(i);
+                                        break;
+                                    }
+                                }
+
+                                // Удаляем старое значение параметра из currentParameters
+                                currentParameters.remove(name);
+
+                                model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                                Parameter newParam = new Parameter(value, section, true);
+                                currentParameters.put(name, newParam);
+                                // Сохраняем обновленные параметры обратно в Preferences
+                                String json = gson.toJson(currentParameters, type);
+                                preferences.put(currentTab, json);
+                            }
+                        } else {
+                            model.insertRow(0, new Object[]{Boolean.TRUE, name, value, section, AllIcons.Actions.GC});
+                            Parameter newParam = new Parameter(value, section, true);
+                            currentParameters.put(name, newParam);
+                            // Сохраняем обновленные параметры обратно в Preferences
+                            String json = gson.toJson(currentParameters, type);
+                            preferences.put(currentTab, json);
+                        }
+
+                        nameField.setText("");
+                        valueField.setText("");
+                        sectionField.setText("");
+                    }
+                }
+            });
+            List<JComponent> components = Arrays.asList(addButton, nameField, valueField, sectionField);
+
+            // Создаем слушатель
+            KeyListener keyListener = new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                        addButton.doClick();
+                    }
+                }
+            };
+
+            // Применяем слушатель к каждому элементу списка
+            for (JComponent component : components) {
+                component.addKeyListener(keyListener);
+            }
+
+            inputPanel.add(addButton);
+
+            // Добавляем кнопку "Специальные параметры"
+            JButton specialParametersButton = new JButton("Специальные настройки", AllIcons.General.GearPlain);
+            specialParametersButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (specialParametersDialogOpen == null || !specialParametersDialogOpen.isShowing()) {
+                        JCheckBox apiDataCheckBox = new JCheckBox("API_DATA");
+                        apiDataCheckBox.setSelected(getPrefState(PREF_API_DATA));
+                        apiDataCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                            }
+                        });
+                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
+
+                        JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
+                        testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
+                        testFilesCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                            }
+                        });
+                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
+
+                        JCheckBox checkConfigCheckBox = new JCheckBox("CHECK_CONFIG");
+                        checkConfigCheckBox.setSelected(getPrefState(PREF_CHECK_CONFIG));
+                        checkConfigCheckBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
+                            }
+                        });
+                        checkConfigCheckBox.setToolTipText("<html><b>CHECK_CONFIG:</b> Отслеживание выбранного файла конфигурции</html>");
+
+                        JCheckBox checkTooltipParameterBox = new JCheckBox("TOOLTIP");
+                        checkTooltipParameterBox.setSelected(getPrefState(PREF_TOOLTIP_PARAMETER, true));
+                        checkTooltipParameterBox.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
+                            }
+                        });
+                        checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
+                        JDialog specialParametersDialog = new JDialog(settingsDialog);
+
+                        JButton saveButton = new JButton("ОК");
+                        saveButton.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
+                                setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
+                                setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
+                                setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
+                                specialParametersDialog.dispose();
+                            }
+                        });
+
+                        JPanel checkBoxPanel = new JPanel(new GridBagLayout());
+                        checkBoxPanel.setBorder(new EmptyBorder(10, 10, 5, 10));
+                        GridBagConstraints gbc = new GridBagConstraints();
+                        gbc.gridwidth = GridBagConstraints.REMAINDER;
+                        gbc.fill = GridBagConstraints.HORIZONTAL;
+                        checkBoxPanel.add(apiDataCheckBox, gbc);
+                        checkBoxPanel.add(testFilesCheckBox, gbc);
+                        checkBoxPanel.add(checkConfigCheckBox, gbc);
+                        checkBoxPanel.add(checkTooltipParameterBox, gbc);
+                        checkBoxPanel.add(saveButton, gbc);
+
+                        // Создаем диалог для отображения панели
+                        specialParametersDialog.setModalityType(Dialog.ModalityType.MODELESS);
+                        specialParametersDialog.setTitle("Специальные параметры");
+                        specialParametersDialog.getContentPane().add(checkBoxPanel);
+                        specialParametersDialog.pack();
+
+                        // Чтобы появился в центре родительского окна
+                        specialParametersDialog.setLocationRelativeTo(settingsDialog);
+
+                        // Определение действия при закрытии окна
+                        specialParametersDialog.addWindowListener(new WindowAdapter() {
+                            @Override
+                            public void windowClosed(WindowEvent e) {
+                                specialParametersDialogOpen = null;
+                            }
+                        });
+
+                        specialParametersDialogOpen = specialParametersDialog;
+                        specialParametersDialog.setVisible(true);
+                    } else {
+                        specialParametersDialogOpen.toFront();
+                    }
+                }
+            });
+
+            inputPanel.add(specialParametersButton);
+
+            panel.add(inputPanel, BorderLayout.SOUTH);
+            // Устанавливаем немодальность
+            settingsDialog.setModalityType(Dialog.ModalityType.MODELESS);
+
+            // Добавление вашей основной панели в центральную часть диалогового окна
+            settingsDialog.add(panel, BorderLayout.CENTER);
+
+            // Получаем панель содержимого и устанавливаем границу
+            Container contentPane = settingsDialog.getContentPane();
+            ((JComponent) contentPane).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+            // Добавление вкладки
+            JPanel mainTab = new JPanel();
+            mainTab.add(panel, BorderLayout.CENTER);
+            if (!preLastPosition) {
+                tabbedPane.addTab(groupName, mainTab);
+                tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, new CustomTabRenderer(tabbedPane, groupName, tabbedPane.getTabCount() - 1));
+            } else {
+                int lastTabIndex = tabbedPane.getTabCount() - 1;
+
+                // Удаляем предпоследнюю вкладку
+                tabbedPane.remove(lastTabIndex);
+                countTabsMain -= 1;
+
+                // Вставляем сохранённый компонент и заголовок на позицию последней вкладки
+                tabbedPane.addTab(groupName, mainTab);
+                tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, new CustomTabRenderer(tabbedPane, groupName, tabbedPane.getTabCount() - 1));
+                addPlusTab(tabbedPane);
+            }
+
+            countTabsMain += 1;
+            groupModels.put(groupName, model);
+        }
+    }
+    public void addPlusTab(JTabbedPane tabbedPane){
+        // Добавление вкладки, которая выглядит как кнопка "+"
+        JLabel plusLabel = new JLabel("+");
+        plusLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        plusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        tabbedPane.addTab("", null, new JPanel(), null);
+        countTabsMain += 1;
+        tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, plusLabel);
     }
 }
