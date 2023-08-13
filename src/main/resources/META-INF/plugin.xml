@@ -58,6 +58,10 @@
         <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.png">
             <add-to-group group-id="NavBarToolBar" anchor="first"></add-to-group>
         </action>
+        <action id="myplugin.AddEditParam" class="actions.AddEditAction"
+                text="Добавить/Изменить" icon="icons/config_icon.png">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
     </actions>
     <application-components>
         <component>

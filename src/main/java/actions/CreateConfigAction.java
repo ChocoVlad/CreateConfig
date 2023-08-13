@@ -253,6 +253,15 @@ public class CreateConfigAction extends AnAction {
                                 saveConfigParameters(project, groupName);
                             }
                         });
+
+                        if (groupName.length() >= 30) {
+                            Font font = groupItem.getFont();
+                            FontMetrics metrics = groupItem.getFontMetrics(font);
+                            int charWidth = metrics.charWidth('M');
+                            int width = 20 * charWidth;
+                            groupItem.setPreferredSize(new Dimension(width, groupItem.getPreferredSize().height));
+                            groupItem.setToolTipText(groupName);
+                        }
                         menuItem.add(groupItem);
                     }
                 } else {
@@ -434,12 +443,13 @@ public class CreateConfigAction extends AnAction {
                                                 groupNameField.setBorder(new GradientBorder(newColor));
                                                 JToolTip toolTip = groupNameField.createToolTip();
                                                 toolTip.setTipText("Такая группа уже создана");
+                                                toolTip.setBackground(UIManager.getColor("ToolTip.background"));
+                                                toolTip.setPreferredSize(new Dimension(155, 20));
                                                 PopupFactory popupFactory = PopupFactory.getSharedInstance();
                                                 Point locationOnScreen = groupNameField.getLocationOnScreen();
-                                                final Popup popup = popupFactory.getPopup(groupNameField, toolTip, locationOnScreen.x, locationOnScreen.y + groupNameField.getHeight());
+                                                final Popup popup = popupFactory.getPopup(groupNameField, toolTip, locationOnScreen.x, locationOnScreen.y + groupNameField.getHeight() + 5);
                                                 popup.show();
 
-                                                // Закрыть всплывающую подсказку через некоторое время (например, 2 секунды)
                                                 new Timer(3000, new ActionListener() {
                                                     @Override
                                                     public void actionPerformed(ActionEvent e) {
@@ -463,7 +473,24 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 });
 
-                                addGroupDialog.getRootPane().setDefaultButton(addGroupButton);
+                                // Создаем список из полей и кнопки
+                                List<JComponent> components = Arrays.asList(addGroupButton, groupNameField);
+
+                                // Создаем слушатель
+                                KeyListener keyListener = new KeyAdapter() {
+                                    @Override
+                                    public void keyPressed(KeyEvent e) {
+                                        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                                            addGroupButton.doClick();
+                                        }
+                                    }
+                                };
+
+                                // Применяем слушатель к каждому элементу списка
+                                for (JComponent component : components) {
+                                    component.addKeyListener(keyListener);
+                                }
+
                                 addGroupDialog.add(addGroupButton, constraints);
 
                                 // Добавляем слушатель фокуса к окну настроек
