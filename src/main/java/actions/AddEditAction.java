@@ -383,7 +383,7 @@ public class AddEditAction extends AnAction  {
     }
     public String getSectionParam(String fileName) {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
-        String json = preferences.get("filesparamslistnow", "{}");
+        String json = preferences.get("sectionsParamsListNow", "{}");
         Gson gson = new Gson();
 
         // Преобразование JSON строки в объект
