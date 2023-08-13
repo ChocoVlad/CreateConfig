@@ -9,7 +9,6 @@ import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.apache.commons.lang3.tuple.Pair;
 import org.ini4j.Wini;
@@ -25,6 +24,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -44,24 +45,30 @@ public class AddEditAction extends AnAction  {
 
             // Получение пути к папке config и извлечение имен файлов без расширения
             VirtualFile currentFile = FileDocumentManager.getInstance().getFile(editor.getDocument());
-            String currentFilePath = currentFile.getPath();
-            String configFolderParent = new File(currentFilePath).getParent();
-            String configFolderPath = "";
-            if (configFolderParent.endsWith("config")) {
-                configFolderPath = configFolderParent;
-            } else {
-                configFolderPath = configFolderParent + File.separator + "config";
+            VirtualFile parentDirectory = currentFile.getParent();
+            if (parentDirectory.getPath().endsWith("config")) {
+                parentDirectory = parentDirectory.getParent();
             }
-
-            File configFolder = new File(configFolderPath);
-            File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".ini"));
+            if (parentDirectory == null) {
+                return;
+            }
+            VirtualFile configsDirectory = parentDirectory.findChild("config");
+            if (configsDirectory == null) {
+                return;
+            }
+            VirtualFile[] configFiles = configsDirectory.getChildren();
+            if (configFiles.length == 0) {
+                return;
+            }
+            // Сортировка по имени файла
+            Arrays.sort(configFiles, Comparator.comparing(VirtualFile::getName));
 
             // Показать диалоговое окно для добавления или редактирования параметра
-            showDialog(files, wordAtCursor);
+            showDialog(configFiles, wordAtCursor);
         }
     }
 
-    private void showDialog(File[] files, String wordAtCursor) {
+    private void showDialog(VirtualFile[] files, String wordAtCursor) {
         resetFilesParamsList();
         setMainNameParam(wordAtCursor);
         if (dialog != null && dialog.isVisible()) {
@@ -123,7 +130,7 @@ public class AddEditAction extends AnAction  {
         panel.add(cursorWordField, gbc);
 
         gbc.gridwidth = 1;
-        for (File file : files) {
+        for (VirtualFile file : files) {
             gbc.gridy++;
 
             gbc.gridx = 0;
@@ -175,13 +182,15 @@ public class AddEditAction extends AnAction  {
                 Pair<String, String> result = findValueAndSectionForKey(file, wordAtCursor);
                 String sectionName = result.getLeft();
                 String keyValue = result.getRight();
+                setSectionParam(file.getName(), sectionName);
                 if (keyValue != null) {
                     textField.setText(keyValue);
                     textField.setCaretPosition(0);
+                    setFileParam(file.getName(), keyValue, "old");
+                } else {
+                    setFileParam(file.getName(), "", "new");
+                    setFileParam(file.getName(), "", "old");
                 }
-                setSectionParam(file.getName(), sectionName);
-                setFileParam(file.getName(), keyValue, "old");
-                setFileParam(file.getName(), keyValue, "new");
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -215,7 +224,7 @@ public class AddEditAction extends AnAction  {
         }
         JButton saveButton = new JButton("Обновить файлы");
         saveButton.addActionListener(e -> {
-            for (File file : files) {
+            for (VirtualFile file : files) {
                 try {
                     if (cursorWordField.getText() != null) {
                         String newSection = getSectionParam(file.getName());
@@ -226,15 +235,11 @@ public class AddEditAction extends AnAction  {
                             Wini ini = new Wini();
                             ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                             ini.getConfig().setLowerCaseOption(false);
-                            ini.load(file);
+                            ini.load(iniFile);
                             ini.get(newSection).put(getMainNameParam(), newValueParam);
-                            ini.store();
+                            ini.store(iniFile);
 
-                            // Получение VirtualFile и обновление его
-                            VirtualFile virtualFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file);
-                            if (virtualFile != null) {
-                                virtualFile.refresh(false, false);
-                            }
+                            file.refresh(false, false);
                         }
                     }
                 } catch (IOException ex) {
@@ -279,14 +284,14 @@ public class AddEditAction extends AnAction  {
             return text.substring(startOffset, endOffset);
         }
     }
-    private Pair<String, String> findValueAndSectionForKey(File file, String key) {
+    private Pair<String, String> findValueAndSectionForKey(VirtualFile file, String key) {
         try {
             File iniFile = new File(file.getPath());
             iniFile.createNewFile();
             Wini ini = new Wini();
             ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
             ini.getConfig().setLowerCaseOption(false);
-            ini.load(file);
+            ini.load(iniFile);
             for (String sectionName : ini.keySet()) {
                 if (ini.get(sectionName, key) != null) {
                     String value = ini.get(sectionName, key);
@@ -306,7 +311,11 @@ public class AddEditAction extends AnAction  {
 
     public void setMainNameParam(String mainNameParam) {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
-        preferences.put("nameparammain", mainNameParam);
+        if (mainNameParam == null) {
+            preferences.put("nameparammain", "");
+        } else {
+            preferences.put("nameparammain", mainNameParam);
+        }
     }
 
     public String getMainNameParam() {
@@ -346,6 +355,9 @@ public class AddEditAction extends AnAction  {
             String oldValue = filesParams.get(fileName).get("oldname"); // Обрезание пробелов
             String newValue = filesParams.get(fileName).get("newname"); // Обрезание пробелов
 
+            if (oldValue == null && newValue != null) {
+                return newValue;
+            }
             if (!oldValue.equals(newValue)) {
                 return newValue;
             }
