@@ -53,6 +53,7 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="ToolWindowAddEdit" anchor="right" factoryClass="actions.ToolWindowAddEdit"/>
     </extensions>
     <actions>
         <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.png">
@@ -61,6 +62,12 @@
         <action id="myplugin.AddEditParam" class="actions.AddEditAction"
                 text="Добавить/Изменить" icon="icons/config_icon.png">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+        <action id="OpenMyToolWindowAction"
+                class="actions.OpenToolWindowAction"
+                text="Открыть MyToolWindow"
+                description="Открывает MyToolWindow вкладку">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
     <application-components>
