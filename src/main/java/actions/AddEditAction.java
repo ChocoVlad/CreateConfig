@@ -25,7 +25,9 @@ import java.awt.event.WindowEvent;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -57,19 +59,41 @@ public class AddEditAction extends AnAction  {
                 return;
             }
             VirtualFile[] configFiles = configsDirectory.getChildren();
-            if (configFiles.length == 0) {
+            List<VirtualFile> allFilesList = new ArrayList<>(Arrays.asList(configFiles));
+
+            for (VirtualFile virtualFile1 : configFiles) {
+                if (virtualFile1.isDirectory()) {
+                    VirtualFile[] configFolderFiles = virtualFile1.getChildren();
+                    configFolderFiles = Arrays.stream(configFolderFiles)
+                            .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("ini"))
+                            .toArray(VirtualFile[]::new);
+
+                    // Добавление файлов из configFolderFiles в общий список
+                    allFilesList.addAll(Arrays.asList(configFolderFiles));
+                }
+            }
+
+            // Преобразование списка обратно в массив
+            VirtualFile[] allFiles = allFilesList.toArray(new VirtualFile[0]);
+            // Фильтрация файлов, чтобы оставить только файлы с расширением .ini
+            allFiles = Arrays.stream(allFiles)
+                    .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("ini"))
+                    .toArray(VirtualFile[]::new);
+
+            if (allFiles.length == 0) {
                 return;
             }
             // Сортировка по имени файла
-            Arrays.sort(configFiles, Comparator.comparing(VirtualFile::getName));
+            Arrays.sort(allFiles, Comparator.comparing(VirtualFile::getName));
 
             // Показать диалоговое окно для добавления или редактирования параметра
-            showDialog(configFiles, wordAtCursor);
+            showDialog(allFiles, wordAtCursor);
         }
     }
 
     private void showDialog(VirtualFile[] files, String wordAtCursor) {
         resetFilesParamsList();
+        resetSectionsParamsList();
         setMainNameParam(wordAtCursor);
         if (dialog != null && dialog.isVisible()) {
             return;
@@ -86,22 +110,17 @@ public class AddEditAction extends AnAction  {
             @Override
             public void windowClosed(WindowEvent e) {
                 resetFilesParamsList();
+                resetSectionsParamsList();
                 dialog = null;
             }
         });
 
-        JPanel panel = new JPanel(new GridBagLayout());
+        JPanel panel = new JPanel(new GridLayout(0, 2, 0, 0));
         panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Создание метки для отображения "Word at Cursor"
         JLabel cursorWordLabel = new JLabel("Название параметра: ");
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 0.5;
-        panel.add(cursorWordLabel, gbc);
+        panel.add(cursorWordLabel);
 
         // Создание текстового поля для отображения значения wordAtCursor
         JTextField cursorWordField = new JTextField(20);
@@ -124,104 +143,49 @@ public class AddEditAction extends AnAction  {
                 setMainNameParam(cursorWordField.getText());
             }
         });
-        gbc.gridx = 1;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2; // Объединение ячеек для текстового поля
-        panel.add(cursorWordField, gbc);
+        panel.add(cursorWordField);
 
-        gbc.gridwidth = 1;
         for (VirtualFile file : files) {
-            gbc.gridy++;
-
-            gbc.gridx = 0;
-            gbc.weightx = 0.5;
-            JLabel label = new JLabel(file.getName() + ": ");
-            panel.add(label, gbc);
-
-            gbc.gridx = 1;
-            gbc.weightx = 0.0;
-            gbc.fill = GridBagConstraints.NONE;
-            gbc.insets = new Insets(0, 5, 0, 0);
-            JTextField textField = new JTextField(20);
-            textField.getDocument().addDocumentListener(new DocumentListener() {
-                @Override
-                public void insertUpdate(DocumentEvent e) {
-                    updateTooltip();
-                    updatePref();
-                }
-
-                @Override
-                public void removeUpdate(DocumentEvent e) {
-                    updateTooltip();
-                    updatePref();
-                }
-
-                @Override
-                public void changedUpdate(DocumentEvent e) {
-                    updateTooltip();
-                    updatePref();
-                }
-
-                private void updateTooltip() {
-                    if (textField.getText().length() > 35) {
-                        textField.setToolTipText(textField.getText());
-                    } else {
-                        textField.setToolTipText(null);
-                    }
-                }
-                private void updatePref() {
-                    if (textField.getText() != null) {
-                        setFileParam(file.getName(), textField.getText(), "new");
-                    } else {
-                        setFileParam(file.getName(), "", "new");
-                    }
-                }
-            });
-
+            if (!file.getParent().getName().equals("config")) {
+                JLabel label = new JLabel(file.getParent().getName() + "/" + file.getName() + ": ");
+                panel.add(label);
+            } else {
+                JLabel label = new JLabel(file.getName() + ": ");
+                panel.add(label);
+            }
+            CustomTextField customTextField = new CustomTextField(20, file);
             try {
                 Pair<String, String> result = findValueAndSectionForKey(file, wordAtCursor);
                 String sectionName = result.getLeft();
                 String keyValue = result.getRight();
-                setSectionParam(file.getName(), sectionName);
-                if (keyValue != null) {
-                    textField.setText(keyValue);
-                    textField.setCaretPosition(0);
-                    setFileParam(file.getName(), keyValue, "old");
+                if (file.getParent().getName().equals("config")) {
+                    setSectionParam(file.getParent().getName() + "/" + file.getName(), sectionName);
                 } else {
-                    setFileParam(file.getName(), "", "new");
-                    setFileParam(file.getName(), "", "old");
+                    setSectionParam(file.getName(), sectionName);
+                }
+                if (keyValue != null) {
+                    customTextField.setText(keyValue);
+                    customTextField.setCaretPosition(0);
+                    if (file.getParent().getName().equals("config")) {
+                        setFileParam(file.getParent().getName() + "/" + file.getName(), keyValue, "old");
+                    } else {
+                        setFileParam(file.getName(), keyValue, "old");
+                    }
+                } else {
+                    if (file.getParent().getName().equals("config")) {
+                        setFileParam(file.getParent().getName() + "/" + file.getName(), "", "old");
+                        setFileParam(file.getParent().getName() + "/" + file.getName(), "", "new");
+                    } else {
+                        setFileParam(file.getName(), "", "old");
+                        setFileParam(file.getName(), "", "new");
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            panel.add(textField, gbc);
-
-            gbc.gridx = 2;
-            gbc.weightx = 0.0;
-            gbc.fill = GridBagConstraints.NONE;
-            gbc.insets = new Insets(0, 5, 0, 0);
-
-            // Создание кнопки копирования
-            JButton copyButton = new JButton(AllIcons.Actions.Copy);
-            copyButton.setBorderPainted(false);
-            copyButton.setContentAreaFilled(false);
-            copyButton.setFocusPainted(false);
-            copyButton.setOpaque(false);
-
-            // Установка размера кнопки в соответствии
-            copyButton.setPreferredSize(new Dimension(16, 16));
-            copyButton.addActionListener(e -> {
-                String textToCopy = textField.getText();
-                StringSelection stringSelection = new StringSelection(textToCopy);
-                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                clipboard.setContents(stringSelection, null);
-            });
-            copyButton.setPreferredSize(new Dimension(16, 16));
-            copyButton.setToolTipText("Скопировать значение из " + file.getName());
-            panel.add(copyButton, gbc);
-
-            gbc.fill = GridBagConstraints.HORIZONTAL;
+            panel.add(customTextField);
         }
+
         JButton saveButton = new JButton("Обновить файлы");
         saveButton.addActionListener(e -> {
             for (VirtualFile file : files) {
@@ -236,6 +200,9 @@ public class AddEditAction extends AnAction  {
                             ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
                             ini.getConfig().setLowerCaseOption(false);
                             ini.load(iniFile);
+                            if (!ini.containsKey(newSection)) {
+                                ini.add(newSection);
+                            }
                             ini.get(newSection).put(getMainNameParam(), newValueParam);
                             ini.store(iniFile);
 
@@ -250,12 +217,16 @@ public class AddEditAction extends AnAction  {
             }
             dialog.dispose();
             resetFilesParamsList();
+            resetSectionsParamsList();
         });
+
         JButton closeButton = new JButton("Закрыть");
         closeButton.addActionListener(e -> {
             dialog.dispose();
             resetFilesParamsList();
+            resetSectionsParamsList();
         });
+
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonsPanel.add(saveButton);
         buttonsPanel.add(closeButton);
@@ -307,6 +278,10 @@ public class AddEditAction extends AnAction  {
     public void resetFilesParamsList() {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         preferences.remove("filesparamslistnow");
+    }
+    public void resetSectionsParamsList() {
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        preferences.remove("sectionsParamsListNow");
     }
 
     public void setMainNameParam(String mainNameParam) {
@@ -400,6 +375,90 @@ public class AddEditAction extends AnAction  {
                 return newValue;
             }
         }
-        return null;
+        return "custom";
+    }
+
+    public class CustomTextField extends JPanel {
+        private JTextField textField;
+        private JButton copyButton;
+        private VirtualFile file;
+
+        public CustomTextField(int columns, VirtualFile file) {
+            this.file = file;
+            setLayout(new BorderLayout());
+
+            textField = new JTextField(columns) {
+                @Override
+                public void setBounds(int x, int y, int width, int height) {
+                    super.setBounds(x, y, width, height);
+                }
+            };
+            add(textField, BorderLayout.CENTER);
+
+            copyButton = new JButton(AllIcons.Actions.Copy);
+            copyButton.setBorderPainted(false);
+            copyButton.setContentAreaFilled(false);
+            copyButton.setFocusPainted(false);
+            copyButton.setOpaque(false);
+            copyButton.setPreferredSize(new Dimension(16, 16));
+            add(copyButton, BorderLayout.EAST);
+
+            copyButton.addActionListener(e -> {
+                String textToCopy = textField.getText();
+                StringSelection stringSelection = new StringSelection(textToCopy);
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(stringSelection, null);
+            });
+
+            textField.getDocument().addDocumentListener(new DocumentListener() {
+                @Override
+                public void insertUpdate(DocumentEvent e) {
+                    updateTooltip();
+                    updatePref();
+                }
+
+                @Override
+                public void removeUpdate(DocumentEvent e) {
+                    updateTooltip();
+                    updatePref();
+                }
+
+                @Override
+                public void changedUpdate(DocumentEvent e) {
+                    updateTooltip();
+                    updatePref();
+                }
+
+                private void updateTooltip() {
+                    if (textField.getText().length() > 35) {
+                        textField.setToolTipText(textField.getText());
+                    } else {
+                        textField.setToolTipText(null);
+                    }
+                }
+                private void updatePref() {
+                    if (textField.getText() != null) {
+                        if (file.getParent().getName().equals("config")) {
+                            setFileParam(file.getParent().getName() + "/" + file.getName(), textField.getText(), "new");
+                        } else {
+                            setFileParam(file.getName(), textField.getText(), "new");
+                        }
+                    } else {
+                        if (file.getParent().getName().equals("config")) {
+                            setFileParam(file.getParent().getName() + "/" + file.getName(), "", "new");
+                        } else {
+                            setFileParam(file.getName(), "", "new");
+                        }
+                    }
+                }
+            });
+        }
+        public void setText(String text) {
+            textField.setText(text);
+        }
+
+        public void setCaretPosition(int position) {
+            textField.setCaretPosition(position);
+        }
     }
 }
