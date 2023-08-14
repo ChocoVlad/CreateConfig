@@ -41,6 +41,21 @@
         <p>The "CreateConfig" plugin simplifies the process of creating and installing configuration files in projects, enhancing development productivity and providing greater flexibility in project setup.</p>
         ]]>
     </description>
+    <change-notes>
+        <![CDATA[
+            <h1>3.0 - 2023-08-15</h1>
+            <h2>Добавлено</h2>
+            <ul>
+              <li>Группировка параметров</li>
+              <li>Поддержка указания нескольких значений для параметра</li>
+              <li>Добавление/Изменение параметра во всех .ini из тестового файла</li>
+            </ul>
+            <h2>Исправлено</h2>
+            <ul>
+              <li>Исправлено сохранение ячейки, при ее редактировании, в таблице</li>
+            </ul>
+        ]]>
+    </change-notes>
 
     <!-- Minimum version of IntelliJ Platform -->
     <idea-version since-build="210.0"/>
