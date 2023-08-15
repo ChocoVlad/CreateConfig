@@ -4,6 +4,7 @@ import com.intellij.codeInsight.completion.*;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.patterns.PlatformPatterns;
@@ -11,6 +12,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,9 +68,13 @@ public class ConfigCompletionContributor extends CompletionContributor {
 
                         if (!shouldAutocomplete) return;
 
-                        // Добавляем ключи в автодополнение, преобразуя их в верхний регистр и устанавливая без учета регистра
+                        Icon myIcon = IconLoader.getIcon("icons/config_completion_icon.svg"); // Загрузка вашей иконки
+
+                        // Добавляем ключи в автодополнение с иконкой
                         for (String key : keys) {
-                            resultSet.addElement(LookupElementBuilder.create(key.toUpperCase()).withCaseSensitivity(false));
+                            resultSet.addElement(LookupElementBuilder.create(key.toUpperCase())
+                                    .withCaseSensitivity(false)
+                                    .withIcon(myIcon));
                         }
                     }
                 }

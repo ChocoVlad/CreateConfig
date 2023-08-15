@@ -54,6 +54,7 @@
             <h2>Исправлено</h2>
             <ul>
               <li>Исправлено сохранение ячейки, при ее редактировании, в таблице</li>
+              <li>Отображение иконки</li>
             </ul>
         ]]>
     </change-notes>
@@ -72,11 +73,11 @@
         <completion.contributor language="Python" implementationClass="actions.ConfigCompletionContributor"/>
     </extensions>
     <actions>
-        <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.png">
+        <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.svg">
             <add-to-group group-id="NavBarToolBar" anchor="first"></add-to-group>
         </action>
         <action id="myplugin.AddEditParam" class="actions.AddEditAction"
-                text="Добавить/Изменить" icon="icons/config_icon.png">
+                text="Добавить/Изменить" icon="icons/config_icon.svg">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
     </actions>
