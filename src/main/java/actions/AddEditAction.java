@@ -158,7 +158,7 @@ public class AddEditAction extends AnAction  {
                 Pair<String, String> result = findValueAndSectionForKey(file, wordAtCursor);
                 String sectionName = result.getLeft();
                 String keyValue = result.getRight();
-                if (file.getParent().getName().equals("config")) {
+                if (!file.getParent().getName().equals("config")) {
                     setSectionParam(file.getParent().getName() + "/" + file.getName(), sectionName);
                 } else {
                     setSectionParam(file.getName(), sectionName);
@@ -166,13 +166,13 @@ public class AddEditAction extends AnAction  {
                 if (keyValue != null) {
                     customTextField.setText(keyValue);
                     customTextField.setCaretPosition(0);
-                    if (file.getParent().getName().equals("config")) {
+                    if (!file.getParent().getName().equals("config")) {
                         setFileParam(file.getParent().getName() + "/" + file.getName(), keyValue, "old");
                     } else {
                         setFileParam(file.getName(), keyValue, "old");
                     }
                 } else {
-                    if (file.getParent().getName().equals("config")) {
+                    if (!file.getParent().getName().equals("config")) {
                         setFileParam(file.getParent().getName() + "/" + file.getName(), "", "old");
                         setFileParam(file.getParent().getName() + "/" + file.getName(), "", "new");
                     } else {
@@ -191,8 +191,15 @@ public class AddEditAction extends AnAction  {
             for (VirtualFile file : files) {
                 try {
                     if (cursorWordField.getText() != null) {
-                        String newSection = getSectionParam(file.getName());
-                        String newValueParam = getFileParam(file.getName());
+                        String newSection = "";
+                        String newValueParam = "";
+                        if (!file.getParent().getName().equals("config")) {
+                            newSection = getSectionParam(file.getParent().getName() + "/" + file.getName());
+                            newValueParam = getFileParam(file.getParent().getName() + "/" + file.getName());
+                        } else {
+                            newSection = getSectionParam(file.getName());
+                            newValueParam = getFileParam(file.getName());
+                        }
                         if (newValueParam != null) {
                             File iniFile = new File(file.getPath());
                             iniFile.createNewFile();
@@ -327,8 +334,8 @@ public class AddEditAction extends AnAction  {
 
         // Получение значений для файла
         if (filesParams.containsKey(fileName)) {
-            String oldValue = filesParams.get(fileName).get("oldname"); // Обрезание пробелов
-            String newValue = filesParams.get(fileName).get("newname"); // Обрезание пробелов
+            String oldValue = filesParams.get(fileName).get("oldname");
+            String newValue = filesParams.get(fileName).get("newname");
 
             if (oldValue == null && newValue != null) {
                 return newValue;
@@ -438,13 +445,13 @@ public class AddEditAction extends AnAction  {
                 }
                 private void updatePref() {
                     if (textField.getText() != null) {
-                        if (file.getParent().getName().equals("config")) {
+                        if (!file.getParent().getName().equals("config")) {
                             setFileParam(file.getParent().getName() + "/" + file.getName(), textField.getText(), "new");
                         } else {
                             setFileParam(file.getName(), textField.getText(), "new");
                         }
                     } else {
-                        if (file.getParent().getName().equals("config")) {
+                        if (!file.getParent().getName().equals("config")) {
                             setFileParam(file.getParent().getName() + "/" + file.getName(), "", "new");
                         } else {
                             setFileParam(file.getName(), "", "new");
