@@ -66,9 +66,9 @@ public class ConfigCompletionContributor extends CompletionContributor {
 
                         if (!shouldAutocomplete) return;
 
-                        // Добавляем ключи в автодополнение
+                        // Добавляем ключи в автодополнение, преобразуя их в верхний регистр
                         for (String key : keys) {
-                            resultSet.addElement(LookupElementBuilder.create(key));
+                            resultSet.addElement(LookupElementBuilder.create(key.toUpperCase()));
                         }
                     }
                 }
