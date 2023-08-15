@@ -68,6 +68,7 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <completion.contributor language="Python" implementationClass="actions.ConfigCompletionContributor"/>
     </extensions>
     <actions>
         <action id="createconfig" class="actions.CreateConfigAction" text="Create config" icon="icons/config_icon.png">
