@@ -405,7 +405,7 @@ public class CreateConfigAction extends AnAction {
                                 // Логика для отображения всплывающего окна для добавления новой группы
                                 JDialog addGroupDialog = new JDialog(settingsDialog, "", false);
                                 addGroupDialog.setUndecorated(true);
-                                addGroupDialog.setSize(300, 40); // Изменил высоту окна, чтобы сделать его более узким
+                                addGroupDialog.setSize(300, 40);
                                 addGroupDialog.setLayout(new BorderLayout());
 
                                 GridBagLayout layout = new GridBagLayout();
@@ -420,7 +420,7 @@ public class CreateConfigAction extends AnAction {
                                 addGroupDialog.add(groupNameField, constraints);
 
                                 // Кнопка для добавления группы
-                                JButton addGroupButton = new JButton(); // Создание кнопки без текста
+                                JButton addGroupButton = new JButton();
                                 addGroupButton.setIcon(AllIcons.ToolbarDecorator.AddFolder);
                                 constraints.weightx = 0.01;
                                 constraints.gridx = 1;
@@ -1020,19 +1020,17 @@ public class CreateConfigAction extends AnAction {
         private Icon collapsedIcon;
         private Icon expandedIcon;
         private Icon currentIcon;
-        private int inset = 18;  // Отступ в пикселях
+        private int inset = 18;
 
         public CustomComboBox() {
             super();
             collapsedIcon = UIManager.getIcon("Table.ascendingSortIcon");
             expandedIcon = UIManager.getIcon("Table.descendingSortIcon");
-            currentIcon = collapsedIcon; // Установите начальную иконку
+            currentIcon = collapsedIcon;
 
-            // Установить свой UI
             setUI(new BasicComboBoxUI() {
                 @Override
                 protected JButton createArrowButton() {
-                    // Этот код отключает стрелку
                     return new JButton() {
                         @Override
                         public int getWidth() {
@@ -1393,7 +1391,7 @@ public class CreateConfigAction extends AnAction {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setColor(Color.GRAY);
                 g2.setFont(getFont()); // Обычный шрифт
-                g2.drawString(placeholder, 10, 20); // Отрегулируйте координаты, чтобы подогнать под ваш стиль
+                g2.drawString(placeholder, 10, 20);
                 g2.dispose();
             }
         }

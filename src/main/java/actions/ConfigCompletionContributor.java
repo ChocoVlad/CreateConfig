@@ -68,7 +68,7 @@ public class ConfigCompletionContributor extends CompletionContributor {
 
                         if (!shouldAutocomplete) return;
 
-                        Icon myIcon = IconLoader.getIcon("icons/config_completion_icon.svg"); // Загрузка вашей иконки
+                        Icon myIcon = IconLoader.getIcon("icons/config_completion_icon.svg");
 
                         // Добавляем ключи в автодополнение с иконкой
                         for (String key : keys) {
