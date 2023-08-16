@@ -13,6 +13,8 @@ repositories {
 dependencies {
     implementation("org.ini4j:ini4j:0.5.4")
     implementation("com.intellij:forms_rt:7.0.3")
+    implementation("org.apache.commons:commons-configuration2:2.7")
+    implementation("commons-beanutils:commons-beanutils:1.9.4")
 }
 
 // Configure Gradle IntelliJ Plugin

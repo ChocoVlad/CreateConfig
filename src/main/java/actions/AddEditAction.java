@@ -1,5 +1,9 @@
 package actions;
 
+import org.apache.commons.configuration2.INIConfiguration;
+import org.apache.commons.configuration2.builder.fluent.Configurations;
+import org.apache.commons.configuration2.ex.ConfigurationException;
+
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.intellij.icons.AllIcons;
@@ -10,6 +14,7 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.apache.commons.configuration2.io.FileHandler;
 import org.apache.commons.lang3.tuple.Pair;
 import org.ini4j.Wini;
 import org.jetbrains.annotations.NotNull;
@@ -202,21 +207,20 @@ public class AddEditAction extends AnAction  {
                         }
                         if (newValueParam != null) {
                             File iniFile = new File(file.getPath());
-                            iniFile.createNewFile();
-                            Wini ini = new Wini();
-                            ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
-                            ini.getConfig().setLowerCaseOption(false);
-                            ini.load(iniFile);
-                            if (!ini.containsKey(newSection)) {
-                                ini.add(newSection);
-                            }
-                            ini.get(newSection).put(getMainNameParam(), newValueParam);
-                            ini.store(iniFile);
+                            Configurations configs = new Configurations();
+                            INIConfiguration config = configs.ini(iniFile);
+
+                            // Установка значения параметра
+                            config.setProperty(newSection + "." + getMainNameParam(), newValueParam);
+
+                            // Сохранение изменений
+                            FileHandler handler = new FileHandler(config);
+                            handler.save(iniFile);
 
                             file.refresh(false, false);
                         }
                     }
-                } catch (IOException ex) {
+                } catch (ConfigurationException ex) {
                     ex.printStackTrace();
                     Notification notification = new Notification("AddEditAction", "Ошибка", "Ошибка при записи параметров в " + file.getName(), NotificationType.ERROR);
                     Notifications.Bus.notify(notification);
