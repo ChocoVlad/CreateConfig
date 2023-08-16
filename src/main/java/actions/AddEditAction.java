@@ -118,7 +118,7 @@ public class AddEditAction extends AnAction  {
         JPanel panel = new JPanel(new GridLayout(0, 2, 0, 0));
         panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // Создание метки для отображения "Word at Cursor"
+        // Создание метки для отображения "wordAtCursor"
         JLabel cursorWordLabel = new JLabel("Название параметра: ");
         panel.add(cursorWordLabel);
 
