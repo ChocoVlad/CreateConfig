@@ -1,9 +1,5 @@
 package actions;
 
-import org.apache.commons.configuration2.INIConfiguration;
-import org.apache.commons.configuration2.builder.fluent.Configurations;
-import org.apache.commons.configuration2.ex.ConfigurationException;
-
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.intellij.icons.AllIcons;
@@ -13,8 +9,9 @@ import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.apache.commons.configuration2.io.FileHandler;
+import com.intellij.openapi.wm.WindowManager;
 import org.apache.commons.lang3.tuple.Pair;
 import org.ini4j.Wini;
 import org.jetbrains.annotations.NotNull;
@@ -91,21 +88,25 @@ public class AddEditAction extends AnAction  {
             // Сортировка по имени файла
             Arrays.sort(allFiles, Comparator.comparing(VirtualFile::getName));
 
+            // Получаем проект
+            Project project = e.getProject();
+
             // Показать диалоговое окно для добавления или редактирования параметра
-            showDialog(allFiles, wordAtCursor);
+            showDialog(allFiles, wordAtCursor, project);
         }
     }
 
-    private void showDialog(VirtualFile[] files, String wordAtCursor) {
+    private void showDialog(VirtualFile[] files, String wordAtCursor, Project project) {
         resetFilesParamsList();
         resetSectionsParamsList();
         setMainNameParam(wordAtCursor);
         if (dialog != null && dialog.isVisible()) {
             return;
         }
-        Frame parentFrame = JOptionPane.getFrameForComponent(null);
-        dialog = new JDialog(parentFrame);
-        dialog.setAlwaysOnTop(true);
+
+        Window parentWindow = WindowManager.getInstance().suggestParentWindow(project);
+        dialog = new JDialog(parentWindow);
+        dialog.setLocationRelativeTo(parentWindow);
         if (wordAtCursor != null) {
             dialog.setTitle(wordAtCursor);
         } else {
@@ -208,20 +209,21 @@ public class AddEditAction extends AnAction  {
                         }
                         if (newValueParam != null) {
                             File iniFile = new File(file.getPath());
-                            Configurations configs = new Configurations();
-                            INIConfiguration config = configs.ini(iniFile);
-
-                            // Установка значения параметра
-                            config.setProperty(newSection + "." + getMainNameParam(), newValueParam);
-
-                            // Сохранение изменений
-                            FileHandler handler = new FileHandler(config);
-                            handler.save(iniFile);
+                            iniFile.createNewFile();
+                            Wini ini = new Wini();
+                            ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
+                            ini.getConfig().setLowerCaseOption(false);
+                            ini.load(iniFile);
+                            if (!ini.containsKey(newSection)) {
+                                ini.add(newSection);
+                            }
+                            ini.get(newSection).put(getMainNameParam(), newValueParam);
+                            ini.store(iniFile);
 
                             file.refresh(false, false);
                         }
                     }
-                } catch (ConfigurationException ex) {
+                } catch (IOException ex) {
                     ex.printStackTrace();
                     Notification notification = new Notification("AddEditAction", "Ошибка", "Ошибка при записи параметров в " + file.getName(), NotificationType.ERROR);
                     Notifications.Bus.notify(notification);
@@ -407,7 +409,7 @@ public class AddEditAction extends AnAction  {
             };
             add(textField, BorderLayout.CENTER);
 
-            copyButton = new JButton(AllIcons.Actions.Copy);
+            copyButton = new JButton(AllIcons.General.InlineCopy);
             copyButton.setBorderPainted(false);
             copyButton.setContentAreaFilled(false);
             copyButton.setFocusPainted(false);
@@ -416,10 +418,21 @@ public class AddEditAction extends AnAction  {
             add(copyButton, BorderLayout.EAST);
 
             copyButton.addActionListener(e -> {
+                copyButton.setIcon(AllIcons.General.InlineCopyHover);
+
+                // Копирование текста в буфер обмена
                 String textToCopy = textField.getText();
-                StringSelection stringSelection = new StringSelection(textToCopy);
-                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                clipboard.setContents(stringSelection, null);
+                if (textToCopy != null) {
+                    StringSelection stringSelection = new StringSelection(textToCopy);
+                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                    clipboard.setContents(stringSelection, null);
+                }
+
+                // Возвращаем фон кнопки к оригинальному цвету
+                Timer timer = new Timer(200, event -> copyButton.setIcon(AllIcons.General.InlineCopy));
+                timer.setRepeats(false);
+                timer.start();
+
             });
 
             textField.getDocument().addDocumentListener(new DocumentListener() {
