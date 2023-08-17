@@ -105,6 +105,7 @@ public class AddEditAction extends AnAction  {
         }
         Frame parentFrame = JOptionPane.getFrameForComponent(null);
         dialog = new JDialog(parentFrame);
+        dialog.setAlwaysOnTop(true);
         if (wordAtCursor != null) {
             dialog.setTitle(wordAtCursor);
         } else {
