@@ -7,6 +7,7 @@ import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
@@ -33,6 +34,8 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AddEditAction extends AnAction  {
 
@@ -40,6 +43,7 @@ public class AddEditAction extends AnAction  {
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
+        FileDocumentManager.getInstance().saveAllDocuments();
         Editor editor = e.getRequiredData(CommonDataKeys.EDITOR);
         VirtualFile virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE);
         if (editor != null && virtualFile != null) {
@@ -195,6 +199,7 @@ public class AddEditAction extends AnAction  {
 
         JButton saveButton = new JButton("Обновить файлы");
         saveButton.addActionListener(e -> {
+            FileDocumentManager.getInstance().saveAllDocuments();
             for (VirtualFile file : files) {
                 try {
                     if (cursorWordField.getText() != null) {
@@ -215,12 +220,10 @@ public class AddEditAction extends AnAction  {
                             ini.getConfig().setLowerCaseOption(false);
                             ini.load(iniFile);
                             if (!ini.containsKey(newSection)) {
-                                ini.add(newSection);
+                                addSectionConfig(file, newSection);
                             }
-                            ini.get(newSection).put(getMainNameParam(), newValueParam);
-                            ini.store(iniFile);
-
-                            file.refresh(false, false);
+                            String mainNameParam = getMainNameParam();
+                            replaceParam(file, newSection, mainNameParam, newValueParam);
                         }
                     }
                 } catch (IOException ex) {
@@ -485,5 +488,102 @@ public class AddEditAction extends AnAction  {
         public void setCaretPosition(int position) {
             textField.setCaretPosition(position);
         }
+    }
+
+    private void replaceParam(VirtualFile file, String section, String mainNameParam, String newValueParam) throws IOException {
+        String regexPattern = "^" + Pattern.quote(mainNameParam) + "\\b\\s*=";
+        Pattern pattern = Pattern.compile(regexPattern);
+
+        // Чтение содержимого файла построчно
+        List<String> lines = new ArrayList<>();
+        boolean inSection = false;
+        boolean valueFound = false;
+        try (InputStream inputStream = file.getInputStream();
+             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(reader)) {
+
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                if (line.trim().equals("[" + section + "]")) {
+                    inSection = true;
+                } else if (inSection && line.trim().startsWith("[")) {
+                    inSection = false;
+                    if (!valueFound) {
+                        lines.add(mainNameParam + " = " + newValueParam); // Вставляем значение, если не найдено
+                    }
+                }
+
+                if (inSection) {
+                    Matcher matcher = pattern.matcher(line);
+                    if (matcher.find()) {
+                        line = line.replaceFirst(regexPattern + ".*", mainNameParam + " = " + newValueParam);
+                        valueFound = true;
+                    }
+                }
+                lines.add(line);
+            }
+
+            if (inSection && !valueFound) {
+                lines.add(mainNameParam + " = " + newValueParam); // Вставляем значение в конец, если не найдено в последней секции
+            }
+        }
+
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+                try (OutputStream outputStream = file.getOutputStream(this, file.getModificationStamp(), file.getTimeStamp());
+                     OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+                     BufferedWriter bufferedWriter = new BufferedWriter(writer)) {
+
+                    for (String line : lines) {
+                        bufferedWriter.write(line);
+                        bufferedWriter.newLine();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Обновление файла в файловой системе IntelliJ
+        file.refresh(false, false);
+    }
+
+    private void addSectionConfig(VirtualFile file, String sectionValue) throws IOException {
+        // Чтение всего содержимого файла в список строк
+        List<String> lines = new ArrayList<>();
+        try (InputStream inputStream = file.getInputStream();
+             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(reader)) {
+
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                lines.add(line);
+            }
+        }
+
+        // Добавление пустой строки и новой секции в квадратных скобках
+        lines.add(""); // Пустая строка
+        lines.add("[" + sectionValue + "]");
+
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+                try (OutputStream outputStream = file.getOutputStream(this, file.getModificationStamp(), file.getTimeStamp());
+                     OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+                     BufferedWriter bufferedWriter = new BufferedWriter(writer)) {
+
+                    for (String line : lines) {
+                        bufferedWriter.write(line);
+                        bufferedWriter.newLine();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Обновление файла в файловой системе IntelliJ
+        file.refresh(false, false);
     }
 }
