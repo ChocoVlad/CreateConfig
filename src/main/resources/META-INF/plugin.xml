@@ -84,7 +84,7 @@
         </action>
         <action id="myplugin.AddEditParam" class="actions.AddEditAction"
                 text="Добавить/Изменить" icon="icons/config_icon.svg">
-            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
     <application-components>
