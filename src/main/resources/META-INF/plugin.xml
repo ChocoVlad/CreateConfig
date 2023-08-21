@@ -56,6 +56,12 @@
               <li>Исправлено сохранение ячейки, при ее редактировании, в таблице</li>
               <li>Отображение иконки</li>
             </ul>
+            <h1>3.1 - 2023-08-23</h1>
+            <h2>Исправлено</h2>
+            <ul>
+              <li>Добрроска параметров в документ</li>
+              <li>Привязка к экрану окна Добавить/Изменить</li>
+            </ul>
         ]]>
     </change-notes>
 
@@ -78,7 +84,7 @@
         </action>
         <action id="myplugin.AddEditParam" class="actions.AddEditAction"
                 text="Добавить/Изменить" icon="icons/config_icon.svg">
-            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
     </actions>
     <application-components>
