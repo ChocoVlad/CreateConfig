@@ -5,13 +5,12 @@ plugins {
 }
 
 group = "com.example"
-version = "3.1"
+version = "3.2"
 
 repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("org.ini4j:ini4j:0.5.4")
     implementation("com.intellij:forms_rt:7.0.3")
 }
 

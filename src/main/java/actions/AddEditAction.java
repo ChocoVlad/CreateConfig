@@ -14,7 +14,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.WindowManager;
 import org.apache.commons.lang3.tuple.Pair;
-import org.ini4j.Wini;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -71,7 +70,7 @@ public class AddEditAction extends AnAction  {
                 if (virtualFile1.isDirectory()) {
                     VirtualFile[] configFolderFiles = virtualFile1.getChildren();
                     configFolderFiles = Arrays.stream(configFolderFiles)
-                            .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("ini"))
+                            .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("toml"))
                             .toArray(VirtualFile[]::new);
 
                     // Добавление файлов из configFolderFiles в общий список
@@ -81,9 +80,9 @@ public class AddEditAction extends AnAction  {
 
             // Преобразование списка обратно в массив
             VirtualFile[] allFiles = allFilesList.toArray(new VirtualFile[0]);
-            // Фильтрация файлов, чтобы оставить только файлы с расширением .ini
+            // Фильтрация файлов, чтобы оставить только файлы с расширением .toml
             allFiles = Arrays.stream(allFiles)
-                    .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("ini"))
+                    .filter(file -> file.getExtension() != null && file.getExtension().equalsIgnoreCase("toml"))
                     .toArray(VirtualFile[]::new);
 
             if (allFiles.length == 0) {
@@ -213,13 +212,7 @@ public class AddEditAction extends AnAction  {
                             newValueParam = getFileParam(file.getName());
                         }
                         if (newValueParam != null) {
-                            File iniFile = new File(file.getPath());
-                            iniFile.createNewFile();
-                            Wini ini = new Wini();
-                            ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
-                            ini.getConfig().setLowerCaseOption(false);
-                            ini.load(iniFile);
-                            if (!ini.containsKey(newSection)) {
+                            if (!findSection(file, newSection)) {
                                 addSectionConfig(file, newSection);
                             }
                             String mainNameParam = getMainNameParam();
@@ -273,16 +266,18 @@ public class AddEditAction extends AnAction  {
         }
     }
     private Pair<String, String> findValueAndSectionForKey(VirtualFile file, String key) {
-        try {
-            File iniFile = new File(file.getPath());
-            iniFile.createNewFile();
-            Wini ini = new Wini();
-            ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
-            ini.getConfig().setLowerCaseOption(false);
-            ini.load(iniFile);
-            for (String sectionName : ini.keySet()) {
-                if (ini.get(sectionName, key) != null) {
-                    String value = ini.get(sectionName, key);
+        String sectionName = null;
+        String regexPattern = "^\\s*" + Pattern.quote(key) + "\\s*=\\s*(.*)$";
+        Pattern pattern = Pattern.compile(regexPattern);
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("[") && line.endsWith("]")) {
+                    sectionName = line.substring(1, line.length() - 1);
+                } else if (pattern.matcher(line).find()) {
+                    String value = line.substring(key.length()).replaceAll("^\\s*=", "").trim();
                     return Pair.of(sectionName, value);
                 }
             }
@@ -585,5 +580,20 @@ public class AddEditAction extends AnAction  {
 
         // Обновление файла в файловой системе IntelliJ
         file.refresh(false, false);
+    }
+    private boolean findSection(VirtualFile file, String sectionName) {
+        String targetSection = "[" + sectionName + "]";
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.equals(targetSection)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }

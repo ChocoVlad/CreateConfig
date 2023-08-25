@@ -6,7 +6,6 @@ import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiFile;
 import com.intellij.util.ProcessingContext;
@@ -36,7 +35,7 @@ public class ConfigCompletionContributor extends CompletionContributor {
                         Path configFolderPath = filePath.getParent().resolve("config");
                         if (!Files.isDirectory(configFolderPath)) return;
 
-                        // Получаем ключи из .ini файлов в папке config
+                        // Получаем ключи из .toml файлов в папке config
                         Set<String> keys = IniFileReader.readKeysFromIniFiles(configFolderPath);
 
                         // Получаем текущую строку, на которой находится курсор

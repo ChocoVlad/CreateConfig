@@ -76,16 +76,16 @@ public class MyInlayProvider implements Disposable {
 
             List<String> results = new ArrayList<>();
 
-            if (!currentFilePath.endsWith("config.ini")) {
-                File configFile = new File(new File(currentFilePath).getParent() + File.separator + "config.ini");
+            if (!currentFilePath.endsWith("config.toml")) {
+                File configFile = new File(new File(currentFilePath).getParent() + File.separator + "config.toml");
                 String value = findValueForKey(configFile, wordAtCursor);
                 if (value != null) {
-                    results.add("<b>config.ini</b> : " + value);
+                    results.add("<b>config.toml</b> : " + value);
                 }
             }
 
             File configFolder = new File(configFolderPath);
-            File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".ini"));
+            File[] files = configFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".toml"));
 
             if (files != null) {
                 for (File file : files) {

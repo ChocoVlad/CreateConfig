@@ -16,7 +16,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.WindowManager;
-import org.ini4j.Wini;
 
 import javax.swing.*;
 import javax.swing.Timer;
@@ -31,8 +30,7 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -134,7 +132,7 @@ public class CreateConfigAction extends AnAction {
                             application.runWriteAction(() -> {
                                 try {
                                     // Создаем файл конфигурации в родительской директории
-                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.toml");
                                     // Копируем содержимое из исходного файла конфигурации
                                     destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
@@ -160,11 +158,11 @@ public class CreateConfigAction extends AnAction {
                                             }
                                         }
                                     }
-                                    // Проставляем комментарий в новом файле config.ini
+                                    // Проставляем комментарий в новом файле config.toml
                                     if (getPrefState(PREF_CHECK_CONFIG)) {
                                         String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
                                         try {
-                                            VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                            VirtualFile configFile = currentFile.getParent().findChild("config.toml");
                                             if (configFile != null) {
                                                 String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
                                                 currentContent = currentContent.replaceFirst("^\\s*", "");
@@ -173,7 +171,7 @@ public class CreateConfigAction extends AnAction {
                                             }
                                         } catch (IOException ex) {
                                             ex.printStackTrace();
-                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.toml", NotificationType.ERROR);
                                             Notifications.Bus.notify(notification);
                                         }
                                     }
@@ -198,7 +196,7 @@ public class CreateConfigAction extends AnAction {
                                 application.runWriteAction(() -> {
                                     try {
                                         // Создаем файл конфигурации в родительской директории
-                                        VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                        VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.toml");
                                         // Копируем содержимое из исходного файла конфигурации
                                         destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
@@ -224,11 +222,11 @@ public class CreateConfigAction extends AnAction {
                                                 }
                                             }
                                         }
-                                        // Проставляем комментарий в новом файле config.ini
+                                        // Проставляем комментарий в новом файле config.toml
                                         if (getPrefState(PREF_CHECK_CONFIG)) {
                                             String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
                                             try {
-                                                VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                                VirtualFile configFile = currentFile.getParent().findChild("config.toml");
                                                 if (configFile != null) {
                                                     String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
                                                     currentContent = currentContent.replaceFirst("^\\s*", "");
@@ -237,7 +235,7 @@ public class CreateConfigAction extends AnAction {
                                                 }
                                             } catch (IOException ex) {
                                                 ex.printStackTrace();
-                                                notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                                notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.toml", NotificationType.ERROR);
                                                 Notifications.Bus.notify(notification);
                                             }
                                         }
@@ -276,7 +274,7 @@ public class CreateConfigAction extends AnAction {
                             application.runWriteAction(() -> {
                                 try {
                                     // Создаем файл конфигурации в родительской директории
-                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.toml");
                                     // Копируем содержимое из исходного файла конфигурации
                                     destinationFile.setBinaryContent(configFile.contentsToByteArray());
 
@@ -302,11 +300,11 @@ public class CreateConfigAction extends AnAction {
                                             }
                                         }
                                     }
-                                    // Проставляем комментарий в новом файле config.ini
+                                    // Проставляем комментарий в новом файле config.toml
                                     if (getPrefState(PREF_CHECK_CONFIG)) {
                                         String copiedFromComment = "# Файл конфигурации скопирован из: " + configFile.getName();
                                         try {
-                                            VirtualFile configFile = currentFile.getParent().findChild("config.ini");
+                                            VirtualFile configFile = currentFile.getParent().findChild("config.toml");
                                             if (configFile != null) {
                                                 String currentContent = new String(configFile.contentsToByteArray(), StandardCharsets.UTF_8);
                                                 currentContent = currentContent.replaceFirst("^\\s*", "");
@@ -315,7 +313,7 @@ public class CreateConfigAction extends AnAction {
                                             }
                                         } catch (IOException ex) {
                                             ex.printStackTrace();
-                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.ini", NotificationType.ERROR);
+                                            notification = new Notification("ConfigCopy", "Ошибка", "Ошибка записи комментария в config.toml", NotificationType.ERROR);
                                             Notifications.Bus.notify(notification);
                                         }
                                     }
@@ -336,10 +334,10 @@ public class CreateConfigAction extends AnAction {
                 // Создаем пункт меню с именем файла и иконкой
                 menuItem.setIcon(AllIcons.General.CopyHovered);
 
-                // Проверяем наличие файла config.ini
-                VirtualFile configOldFile = parentDirectory.findChild("config.ini");
+                // Проверяем наличие файла config.toml
+                VirtualFile configOldFile = parentDirectory.findChild("config.toml");
                 if (configOldFile != null) {
-                    // Проверяем наличие комментария о копировании в файле config.ini
+                    // Проверяем наличие комментария о копировании в файле config.toml
                     try {
                         List<String> lines = Files.readAllLines(Paths.get(configOldFile.getPath()), StandardCharsets.UTF_8);
                         for (String line : lines) {
@@ -667,19 +665,13 @@ public class CreateConfigAction extends AnAction {
         Application application = ApplicationManager.getApplication();
         application.runWriteAction(() -> {
             try {
-                VirtualFile existsConfigFile = currentFile.getParent().findChild("config.ini");
+                VirtualFile existsConfigFile = currentFile.getParent().findChild("config.toml");
 
                 if (existsConfigFile != null) {
-                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.ini");
+                    VirtualFile destinationFile = currentFile.getParent().createChildData(this, "config.toml");
 
                     File iniFile = new File(destinationFile.getPath());
                     iniFile.createNewFile();
-
-                    Wini ini = new Wini();
-                    ini.getConfig().setFileEncoding(StandardCharsets.UTF_8);
-                    ini.getConfig().setLowerCaseOption(false);
-
-                    ini.load(iniFile);
 
                     Preferences preferences = Preferences.userNodeForPackage(getClass());
                     Gson gson = new Gson();
@@ -697,15 +689,15 @@ public class CreateConfigAction extends AnAction {
                             String section = parameter.getSection();
                             Boolean active = parameter.isActive();
                             if (active) {
-                                if (!ini.containsKey(section)) {
-                                    ini.add(section);
+                                if (!findSection(destinationFile, section)) {
+                                    addSectionConfig(destinationFile, section);
                                 }
                                 if (!StringUtil.isEmptyOrSpaces(value)) {
                                     // Если значение содержит "%n", выберите первый элемент после разделения
                                     if (value.contains("%n")) {
                                         value = value.split("%n")[0];
                                     }
-                                    ini.get(section).put(key, value);
+                                    replaceParam(destinationFile, section, key, value);
                                 }
                             }
                         }
@@ -715,14 +707,12 @@ public class CreateConfigAction extends AnAction {
                         VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
                         if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
                             String testFilesPath = testFilesDirectory.getPath();
-                            if (!ini.containsKey("custom")) {
-                                ini.add("custom");
+                            if (!findSection(destinationFile, "custom")) {
+                                addSectionConfig(destinationFile, "custom");
                             }
-                            ini.get("custom").put("TEST_FILES", testFilesPath);
+                            replaceParam(destinationFile, "custom", "TEST_FILES", testFilesPath);
                         }
                     }
-
-                    ini.store(iniFile);
 
                     if (destinationFile != null) {
                         destinationFile.refresh(false, true);
@@ -730,7 +720,7 @@ public class CreateConfigAction extends AnAction {
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
-                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при записи параметров в config.ini", NotificationType.ERROR);
+                Notification notification = new Notification("ConfigCopy", "Ошибка", "Ошибка при записи параметров в config.toml", NotificationType.ERROR);
                 Notifications.Bus.notify(notification);
             }
         });
@@ -1692,7 +1682,7 @@ public class CreateConfigAction extends AnAction {
                                 setPrefState(PREF_API_DATA, apiDataCheckBox.isSelected());
                             }
                         });
-                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.ini</html>");
+                        apiDataCheckBox.setToolTipText("<html><b>API_DATA:</b> Формирование файла data.py вместе с файлом config.toml</html>");
 
                         JCheckBox testFilesCheckBox = new JCheckBox("TEST_FILES");
                         testFilesCheckBox.setSelected(getPrefState(PREF_TEST_FILES));
@@ -1702,7 +1692,7 @@ public class CreateConfigAction extends AnAction {
                                 setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
                             }
                         });
-                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.ini</html>");
+                        testFilesCheckBox.setToolTipText("<html><b>TEST_FILES:</b> Автоматическое определение папки test-files и проброс ее в config.toml</html>");
 
                         JCheckBox checkConfigCheckBox = new JCheckBox("CHECK_CONFIG");
                         checkConfigCheckBox.setSelected(getPrefState(PREF_CHECK_CONFIG));
@@ -1817,5 +1807,117 @@ public class CreateConfigAction extends AnAction {
         tabbedPane.addTab("", null, new JPanel(), null);
         countTabsMain += 1;
         tabbedPane.setTabComponentAt(tabbedPane.getTabCount() - 1, plusLabel);
+    }
+
+    //Работа с файлами
+    private boolean findSection(VirtualFile file, String sectionName) {
+        String targetSection = "[" + sectionName + "]";
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.equals(targetSection)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    private void addSectionConfig(VirtualFile file, String sectionValue) throws IOException {
+        // Чтение всего содержимого файла в список строк
+        List<String> lines = new ArrayList<>();
+        try (InputStream inputStream = file.getInputStream();
+             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(reader)) {
+
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                lines.add(line);
+            }
+        }
+
+        // Добавление пустой строки и новой секции в квадратных скобках
+        lines.add(""); // Пустая строка
+        lines.add("[" + sectionValue + "]");
+
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+                try (OutputStream outputStream = file.getOutputStream(this, file.getModificationStamp(), file.getTimeStamp());
+                     OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+                     BufferedWriter bufferedWriter = new BufferedWriter(writer)) {
+
+                    for (String line : lines) {
+                        bufferedWriter.write(line);
+                        bufferedWriter.newLine();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Обновление файла в файловой системе IntelliJ
+        file.refresh(false, false);
+    }
+    private void replaceParam(VirtualFile file, String section, String mainNameParam, String newValueParam) throws IOException {
+        String regexPattern = "^" + Pattern.quote(mainNameParam) + "\\b\\s*=";
+        Pattern pattern = Pattern.compile(regexPattern);
+
+        // Чтение содержимого файла построчно
+        List<String> lines = new ArrayList<>();
+        boolean inSection = false;
+        boolean valueFound = false;
+        try (InputStream inputStream = file.getInputStream();
+             InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(reader)) {
+
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                if (line.trim().equals("[" + section + "]")) {
+                    inSection = true;
+                } else if (inSection && line.trim().startsWith("[")) {
+                    inSection = false;
+                    if (!valueFound) {
+                        lines.add(mainNameParam + " = " + newValueParam); // Вставляем значение, если не найдено
+                    }
+                }
+
+                if (inSection) {
+                    Matcher matcher = pattern.matcher(line);
+                    if (matcher.find()) {
+                        line = line.replaceFirst(regexPattern + ".*", mainNameParam + " = " + newValueParam);
+                        valueFound = true;
+                    }
+                }
+                lines.add(line);
+            }
+
+            if (inSection && !valueFound) {
+                lines.add(mainNameParam + " = " + newValueParam); // Вставляем значение в конец, если не найдено в последней секции
+            }
+        }
+
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+                try (OutputStream outputStream = file.getOutputStream(this, file.getModificationStamp(), file.getTimeStamp());
+                     OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+                     BufferedWriter bufferedWriter = new BufferedWriter(writer)) {
+
+                    for (String line : lines) {
+                        bufferedWriter.write(line);
+                        bufferedWriter.newLine();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Обновление файла в файловой системе IntelliJ
+        file.refresh(false, false);
     }
 }
