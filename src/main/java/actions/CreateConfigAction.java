@@ -1872,8 +1872,6 @@ public class CreateConfigAction extends AnAction {
         file.refresh(false, false);
     }
     private void replaceParam(VirtualFile file, String section, String mainNameParam, String newValueParam) throws IOException {
-
-
         String regexPattern = "^" + Pattern.quote(mainNameParam) + "\\b\\s*=";
         Pattern pattern = Pattern.compile(regexPattern);
 
