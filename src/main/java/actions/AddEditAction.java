@@ -382,12 +382,12 @@ public class AddEditAction extends AnAction  {
             String newValue = filesParams.get(fileName).getOrDefault("section", "").trim();
 
             if (newValue == "") {
-                return "custom";
+                return "CUSTOM";
             } else {
                 return newValue;
             }
         }
-        return "custom";
+        return "CUSTOM";
     }
 
     public class CustomTextField extends JPanel {
@@ -511,7 +511,7 @@ public class AddEditAction extends AnAction  {
                 if (inSection) {
                     Matcher matcher = pattern.matcher(line);
                     if (matcher.find()) {
-                        line = line.replaceFirst(regexPattern + ".*", mainNameParam + " = " + newValueParam);
+                        line = mainNameParam + " = " + newValueParam;
                         valueFound = true;
                     }
                 }

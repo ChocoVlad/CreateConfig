@@ -707,10 +707,11 @@ public class CreateConfigAction extends AnAction {
                         VirtualFile testFilesDirectory = parentDirectory.findChild("test-files");
                         if (testFilesDirectory != null && testFilesDirectory.isDirectory()) {
                             String testFilesPath = testFilesDirectory.getPath();
-                            if (!findSection(destinationFile, "custom")) {
-                                addSectionConfig(destinationFile, "custom");
+                            if (!findSection(destinationFile, "CUSTOM")) {
+                                addSectionConfig(destinationFile, "CUSTOM");
                             }
-                            replaceParam(destinationFile, "custom", "TEST_FILES", testFilesPath);
+                            String windowsPath = "\"" + testFilesPath.replace("/", "\\\\") + "\"";
+                            replaceParam(destinationFile, "CUSTOM", "TEST_FILES", windowsPath);
                         }
                     }
 
@@ -1863,6 +1864,8 @@ public class CreateConfigAction extends AnAction {
         file.refresh(false, false);
     }
     private void replaceParam(VirtualFile file, String section, String mainNameParam, String newValueParam) throws IOException {
+
+
         String regexPattern = "^" + Pattern.quote(mainNameParam) + "\\b\\s*=";
         Pattern pattern = Pattern.compile(regexPattern);
 
@@ -1888,7 +1891,7 @@ public class CreateConfigAction extends AnAction {
                 if (inSection) {
                     Matcher matcher = pattern.matcher(line);
                     if (matcher.find()) {
-                        line = line.replaceFirst(regexPattern + ".*", mainNameParam + " = " + newValueParam);
+                        line = mainNameParam + " = " + newValueParam;
                         valueFound = true;
                     }
                 }
