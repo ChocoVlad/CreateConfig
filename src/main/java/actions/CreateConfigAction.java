@@ -100,13 +100,21 @@ public class CreateConfigAction extends AnAction {
             return;
         }
 
+        // Фильтруем файлы, оставляя только те, которые заканчиваются на .toml
+        List<VirtualFile> tomlFiles = new ArrayList<>();
+        for (VirtualFile file : configFiles) {
+            if (file.getName().endsWith(".toml")) {
+                tomlFiles.add(file);
+            }
+        }
+
         // Создаем контекстное меню
         JPopupMenu popupMenu = new JPopupMenu();
 
         // Создаем список компонентов меню
         java.util.List<Component> menuComponents = new ArrayList<>();
 
-        for (VirtualFile configFile : configFiles) {
+        for (VirtualFile configFile : tomlFiles) {
             if (!configFile.isDirectory()) {
                 // Получаем имя файла без расширения
                 String fileName = configFile.getNameWithoutExtension();
