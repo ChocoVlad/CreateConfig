@@ -50,6 +50,7 @@ public class CreateConfigAction extends AnAction {
     private static final String PREF_API_DATA = "API_DATA";
     private static final String PREF_TEST_FILES = "TEST_FILES";
     private static final String PREF_CHECK_CONFIG = "CHECK_CONFIG";
+    private static final String PREF_DELETE_MASKS = "PREF_DELETE_MASKS";
     private static final String PREF_TOOLTIP_PARAMETER = "TOOLTIP";
     private int activeTabIndex = 0;
     private int countTabsMain = 0;
@@ -536,7 +537,7 @@ public class CreateConfigAction extends AnAction {
                     okButton.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            for (String groupName: groupModels.keySet()) {
+                            for (String groupName : groupModels.keySet()) {
                                 currentParameters.clear();
                                 DefaultTableModel model = groupModels.get(groupName);
                                 for (int j = 0; j < model.getRowCount(); j++) {
@@ -557,7 +558,6 @@ public class CreateConfigAction extends AnAction {
                                     preferences.put(groupName, gson.toJson(currentParameters));
                                 }
                             }
-                            settingsDialog.dispose();
                         }
                     });
 
@@ -602,8 +602,56 @@ public class CreateConfigAction extends AnAction {
         for (Component component : menuComponents) {
             popupMenu.add(component);
         }
+
+        Preferences preferences = Preferences.userNodeForPackage(getClass());
+        String deleteMasksValues = preferences.get(PREF_DELETE_MASKS, "");
+        String[] deleteMasks = deleteMasksValues.split(";");
+        JMenuItem deleteFilesButton = new JMenuItem("Очистить", AllIcons.Actions.Uninstall);
+        // Добавляем слушатель на пункт меню "Очистить"
+        deleteFilesButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Object[] options = {"Подтвердить", "Отмена"};
+                String deleteTextFull = "";
+                for (String deleteMask : deleteMasks) {
+                    VirtualFile[] deleteFiles = parentDirectory.getChildren();
+                    for (VirtualFile deleteFile: deleteFiles) {
+                        if (deleteFile.getName().contains(deleteMask.replace(" ", ""))) {
+                            if (deleteTextFull.isEmpty()) {
+                                deleteTextFull = "\n"+deleteFile.getName();
+                            } else {
+                                deleteTextFull = deleteTextFull+"\n"+deleteFile.getName();
+                            }
+                        }
+                    }
+                }
+                int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
+                        "Вы собираетесь удалить файлы:"+deleteTextFull,
+                        "Подтвердите удаление",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+                if (dialogResult == JOptionPane.YES_OPTION) {
+                    for (String deleteMask : deleteMasks) {
+                        VirtualFile[] deleteFiles = parentDirectory.getChildren();
+                        for (VirtualFile deleteFile: deleteFiles) {
+                            if (deleteFile.getName().contains(deleteMask.replace(" ", ""))) {
+                                File deletedFile = new File(deleteFile.getPath());
+                                deletedFile.delete();
+                                deleteFile.refresh(false, true);
+                            }
+                        }
+                    }
+                }
+            }
+        });
         // Добавляем разделитель в меню
         popupMenu.addSeparator();
+        if (!deleteMasksValues.isEmpty()) {
+            popupMenu.add(deleteFilesButton);
+        }
         // Добавляем пункт меню "Настройки" в контекстное меню
         popupMenu.add(settingsItem);
 
@@ -632,7 +680,8 @@ public class CreateConfigAction extends AnAction {
         String json = preferences.get(PREF_PARAMETERS, "");
 
         // Определяем тип данных для GSON
-        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+        Type type = new TypeToken<Map<String, Parameter>>() {
+        }.getType();
         try {
             parameters = gson.fromJson(json, type);
         } catch (JsonSyntaxException exception) {
@@ -689,7 +738,8 @@ public class CreateConfigAction extends AnAction {
                     } else {
                         jsonParameters = preferences.get(groupName, "");
                     }
-                    currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
+                    currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {
+                    }.getType());
                     if (currentParameters != null) {
                         for (String key : currentParameters.keySet()) {
                             Parameter parameter = currentParameters.get(key);
@@ -704,6 +754,9 @@ public class CreateConfigAction extends AnAction {
                                     // Если значение содержит "%n", выберите первый элемент после разделения
                                     if (value.contains("%n")) {
                                         value = value.split("%n")[0];
+                                    }
+                                    if (value.equals("USE_TEST_FOLDER")) {
+                                        value = "\"" + parentDirectory.getPath().replace("/", "\\\\") + "\"";
                                     }
                                     replaceParam(destinationFile, section, key, value);
                                 }
@@ -751,6 +804,7 @@ public class CreateConfigAction extends AnAction {
         Preferences preferences = Preferences.userNodeForPackage(getClass());
         preferences.putBoolean(prefName, state);
     }
+
     private void addPreferenceGroup(String groupName) {
         Preferences prefs = Preferences.userNodeForPackage(this.getClass());
         String existingGroups = prefs.get("groups", "");
@@ -951,7 +1005,8 @@ public class CreateConfigAction extends AnAction {
                         currentTab = PREF_PARAMETERS;
                     }
                     String json = prefs.get(currentTab, "");
-                    Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+                    Type type = new TypeToken<Map<String, Parameter>>() {
+                    }.getType();
                     Map<String, Parameter> params = gson.fromJson(json, type);
                     params.remove(name);
                     json = gson.toJson(params, type);
@@ -1126,6 +1181,7 @@ public class CreateConfigAction extends AnAction {
             return visibleRows * itemHeight;
         }
     }
+
     class EditButtonRenderer extends JButton implements TableCellRenderer {
         public EditButtonRenderer() {
             setOpaque(true);
@@ -1148,6 +1204,7 @@ public class CreateConfigAction extends AnAction {
             return this;
         }
     }
+
     class EditButtonEditor extends DefaultCellEditor {
         protected JButton button;
         private String label;
@@ -1404,7 +1461,8 @@ public class CreateConfigAction extends AnAction {
                 currentParameters = new HashMap<>(parameters);
             } else {
                 String jsonParameters = preferences.get(groupName, "");
-                currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {}.getType());
+                currentParameters = gson.fromJson(jsonParameters, new TypeToken<Map<String, Parameter>>() {
+                }.getType());
             }
             JPanel panel = new JPanel();
             panel.setLayout(new BorderLayout());
@@ -1597,7 +1655,8 @@ public class CreateConfigAction extends AnAction {
                         }
                     } else {
                         String currentTab = tabbedPane.getTitleAt(tabbedPane.getSelectedIndex());
-                        Type type = new TypeToken<Map<String, Parameter>>(){}.getType();
+                        Type type = new TypeToken<Map<String, Parameter>>() {
+                        }.getType();
                         if (currentTab.equals("Основные")) {
                             currentTab = PREF_PARAMETERS;
                         }
@@ -1724,6 +1783,11 @@ public class CreateConfigAction extends AnAction {
                         checkTooltipParameterBox.setToolTipText("<html><b>TOOLTIP:</b> Всплывающая подсказка с информацией о значении параметра в конфигах.</html>");
                         JDialog specialParametersDialog = new JDialog(settingsDialog);
 
+                        JLabel deleteMasksLabel = new JLabel("DELETE_MASKS");
+                        JTextField deleteMasksField = new JTextField(40);
+                        deleteMasksField.setPreferredSize(new Dimension(200, 30));
+                        deleteMasksField.setText(preferences.get(PREF_DELETE_MASKS, ""));
+
                         JButton saveButton = new JButton("ОК");
                         saveButton.addActionListener(new ActionListener() {
                             @Override
@@ -1732,6 +1796,7 @@ public class CreateConfigAction extends AnAction {
                                 setPrefState(PREF_TEST_FILES, testFilesCheckBox.isSelected());
                                 setPrefState(PREF_CHECK_CONFIG, checkConfigCheckBox.isSelected());
                                 setPrefState(PREF_TOOLTIP_PARAMETER, checkTooltipParameterBox.isSelected());
+                                preferences.put(PREF_DELETE_MASKS, deleteMasksField.getText());
                                 specialParametersDialog.dispose();
                             }
                         });
@@ -1745,6 +1810,8 @@ public class CreateConfigAction extends AnAction {
                         checkBoxPanel.add(testFilesCheckBox, gbc);
                         checkBoxPanel.add(checkConfigCheckBox, gbc);
                         checkBoxPanel.add(checkTooltipParameterBox, gbc);
+                        checkBoxPanel.add(deleteMasksLabel, gbc);
+                        checkBoxPanel.add(deleteMasksField, gbc);
                         checkBoxPanel.add(saveButton, gbc);
 
                         // Создаем диалог для отображения панели
@@ -1808,7 +1875,8 @@ public class CreateConfigAction extends AnAction {
             groupModels.put(groupName, model);
         }
     }
-    public void addPlusTab(JTabbedPane tabbedPane){
+
+    public void addPlusTab(JTabbedPane tabbedPane) {
         // Добавление вкладки, которая выглядит как кнопка "+"
         JLabel plusLabel = new JLabel("+");
         plusLabel.setFont(new Font("Arial", Font.BOLD, 20));
@@ -1834,6 +1902,7 @@ public class CreateConfigAction extends AnAction {
         }
         return false;
     }
+
     private void addSectionConfig(VirtualFile file, String sectionValue) throws IOException {
         // Чтение всего содержимого файла в список строк
         List<String> lines = new ArrayList<>();
@@ -1871,6 +1940,7 @@ public class CreateConfigAction extends AnAction {
         // Обновление файла в файловой системе IntelliJ
         file.refresh(false, false);
     }
+
     private void replaceParam(VirtualFile file, String section, String mainNameParam, String newValueParam) throws IOException {
         String regexPattern = "^" + Pattern.quote(mainNameParam) + "\\b\\s*=";
         Pattern pattern = Pattern.compile(regexPattern);
