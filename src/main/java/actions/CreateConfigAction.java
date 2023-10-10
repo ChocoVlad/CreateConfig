@@ -625,6 +625,9 @@ public class CreateConfigAction extends AnAction {
                         }
                     }
                 }
+                if (deleteTextFull.equals("")){
+                    deleteTextFull = "\n" + "Нет файлов на удаление...";
+                }
                 int dialogResult = JOptionPane.showOptionDialog(settingsDialog,
                         "Вы собираетесь удалить файлы:"+deleteTextFull,
                         "Подтвердите удаление",
@@ -639,6 +642,12 @@ public class CreateConfigAction extends AnAction {
                         for (VirtualFile deleteFile: deleteFiles) {
                             if (deleteFile.getName().contains(deleteMask.replace(" ", ""))) {
                                 File deletedFile = new File(deleteFile.getPath());
+                                if (deletedFile.isDirectory()) {
+                                    File[] deleteFilesInFolder = deletedFile.listFiles();
+                                    for (File deleteFileInFolder : deleteFilesInFolder) {
+                                        deleteFileInFolder.delete();
+                                    }
+                                }
                                 deletedFile.delete();
                                 deleteFile.refresh(false, true);
                             }
