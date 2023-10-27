@@ -649,6 +649,7 @@ public class CreateConfigAction extends AnAction {
                                     }
                                 }
                                 deletedFile.delete();
+                                deletedFile.delete();
                                 deleteFile.refresh(false, true);
                             }
                         }
